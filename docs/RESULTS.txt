@@ -24,6 +24,9 @@ Actual downloaded runtime metadata probes:
   All hooks were installed/uninstalled against actual downloaded runtime assemblies in isolated processes.
   No game boot, real chat session, hook invocation, UI rendering or GPU test.
 
-Windows standalone-importer CI: pending remote workflow result.
+Windows CI: PASSED (run 41661944454, source 8a32712).
+  https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41661944454
+  Both compilation targets, all tests, standalone EXE, Chinese filenames, installed
+  default import path, both ZIP packages and PowerShell syntax checks passed.
 Real-game multiplayer, host/dedicated server, UI, graphics lifecycle, and long-session
 performance/security acceptance: NOT COMPLETED in this environment.

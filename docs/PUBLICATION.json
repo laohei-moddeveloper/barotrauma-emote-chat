@@ -20,5 +20,10 @@
     "local imported emotes and names.json",
     "credentials and private migration materials"
   ],
-  "cover_selection": "A"
+  "cover_selection": "A",
+  "github_status": "source-pushed-and-windows-ci-passed",
+  "github_release_tag": "v0.1.0-preview",
+  "verified_source_revision": "8a32712c48d69675907a05d153bd15022a3c68e5",
+  "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41661944454",
+  "workshop_status": "prepared-awaiting-local-game-validation-and-steam-session"
 }
