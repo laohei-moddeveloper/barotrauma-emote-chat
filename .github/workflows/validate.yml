@@ -40,11 +40,24 @@ jobs:
         run: python -m PyInstaller --clean --onefile --name EmoteImporter --distpath build/importer tools/import_emotes.py
       - name: Test executable and package
         run: |
-          build/importer/EmoteImporter.exe .test-fixtures/still.png .test-fixtures/motion.gif --library .test-fixtures/exe-library
+          build/importer/EmoteImporter.exe .test-fixtures/中文表情.png .test-fixtures/motion.gif --library .test-fixtures/exe-library
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package.py --importer build/importer/EmoteImporter.exe
+          Expand-Archive dist/EmoteChat-0.1.0-preview.zip .test-fixtures/installed
+          .test-fixtures/installed/LocalMods/EmoteChat/Tools/EmoteImporter.exe .test-fixtures/motion.gif
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Get-ChildItem .test-fixtures/installed/LocalMods/EmoteChat/Library -Filter *.ecp)) { throw 'Default importer path is wrong' }
           python -m unittest discover -s tests -p "test_package.py" -v
+          python tools/package_workshop.py --importer build/importer/EmoteImporter.exe
+      - name: Parse workshop PowerShell scripts
+        shell: pwsh
+        run: |
+          Get-ChildItem workshop -Filter *.ps1 | ForEach-Object {
+            $tokens=$null; $parseErrors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$tokens,[ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EmoteChat-0.1.0-preview
-          path: dist/EmoteChat-0.1.0-preview.zip
+          path: dist/*.zip

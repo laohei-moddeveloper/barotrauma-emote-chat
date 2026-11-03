@@ -21,20 +21,23 @@ namespace EmoteChat
     {
         public readonly string Hash;
         public readonly byte[] Data;
+        private readonly bool[] filled;
         public int Offset { get; private set; }
         public readonly double Started;
         public AssemblyBuffer(string hash, int size, double now)
         {
             if (!Format.IsHash(hash) || size < 16 || size > Format.MaxFile) throw new InvalidDataException("Invalid offer");
-            Hash = hash; Data = new byte[size]; Started = now;
+            Hash = hash; Data = new byte[size]; filled = new bool[(size + 767) / 768]; Started = now;
         }
         public bool Append(int offset, byte[] bytes)
         {
-            if (bytes == null || bytes.Length < 1 || bytes.Length > 768 || offset < 0 || offset > Data.Length - bytes.Length)
+            if (bytes == null || offset < 0 || offset >= Data.Length || offset % 768 != 0 || bytes.Length != Math.Min(768, Data.Length - offset))
                 throw new InvalidDataException("Invalid chunk");
-            // Duplicate/out-of-order chunks never mutate state. Sender retries from acknowledged offset.
-            if (offset != Offset) return false;
-            Buffer.BlockCopy(bytes, 0, Data, Offset, bytes.Length); Offset += bytes.Length;
+            int slot = offset / 768;
+            // Reordering uses the already allocated buffer, never a per-packet queue.
+            if (filled[slot] || slot >= Offset / 768 + 8) return false;
+            Buffer.BlockCopy(bytes, 0, Data, offset, bytes.Length); filled[slot] = true;
+            while (Offset < Data.Length && filled[Offset / 768]) Offset += Math.Min(768, Data.Length - Offset);
             return Offset == Data.Length;
         }
     }

@@ -13,7 +13,7 @@ def build(output: Path, importer: Path | None = None):
     for path in sorted((package / "CSharp").rglob("*.cs")):
         files["LocalMods/EmoteChat/" + path.relative_to(package).as_posix()] = path
     files["LocalMods/EmoteChat/filelist.xml"] = package / "filelist.xml"
-    for name in ("import_emotes.py", "requirements.txt", "Import-Windows.cmd"):
+    for name in ("import_emotes.py", "requirements.txt"):
         files["LocalMods/EmoteChat/Tools/" + name] = ROOT / "tools" / name
     if importer:
         if not importer.is_file() or importer.suffix.lower() != ".exe":

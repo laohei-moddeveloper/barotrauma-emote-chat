@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EmoteChat
 {
-    // Four-chunk window: bounded memory, explicit offsets, retry-safe, no reliance on packet ordering.
+    // Eight-chunk window: bounded memory, explicit offsets, retry-safe, no reliance on packet ordering.
     public sealed class Session : IDisposable
     {
         public const byte Hello = 1, Welcome = 2, Offer = 3, Ack = 4, Chunk = 5, Complete = 6, Get = 7, Reject = 8;
@@ -17,7 +17,7 @@ namespace EmoteChat
         private AssemblyBuffer rx;
         private Task<Asset> decoding;
         private Asset tx;
-        private int txOffset = -1, sentOffset;
+        private int txOffset = -1, sentOffset, highWater, duplicateAcks, fastRetryAt = -2;
         private double txStarted, lastSend = -10, lastWelcome = -10, lastProgress;
         private bool disposed;
         public bool Ready { get; private set; }
@@ -38,7 +38,7 @@ namespace EmoteChat
         public void Upload(Asset asset, double now)
         {
             if (disposed || tx != null) throw new InvalidOperationException("Transfer busy");
-            tx = asset; txOffset = -1; sentOffset = 0; txStarted = now; lastProgress = now; lastSend = -10;
+            tx = asset; txOffset = -1; sentOffset = 0; highWater = 0; duplicateAcks = 0; fastRetryAt = -2; txStarted = now; lastProgress = now; lastSend = -10;
         }
         public void Request(string hash) { if (Ready && Format.IsHash(hash)) Write(Get, hash); }
         public void Tick(double now)
@@ -66,7 +66,7 @@ namespace EmoteChat
             if (now - lastSend < 0.085) return;
             bool offer = txOffset < 0;
             if (offer && now - lastSend < 2) return;
-            if (!offer && sentOffset >= Math.Min(tx.Encoded.Length, txOffset + 4 * 768))
+            if (!offer && sentOffset >= Math.Min(tx.Encoded.Length, txOffset + 8 * 768))
             {
                 if (now - lastProgress < 2) return;
                 if (sentOffset == tx.Encoded.Length) offer = true; // repeat receipt request
@@ -79,6 +79,7 @@ namespace EmoteChat
             {
                 int count = Math.Min(768, tx.Encoded.Length - sentOffset);
                 Write(Chunk, tx.Hash, sentOffset, tx.Encoded, sentOffset, count); sentOffset += count;
+                highWater = Math.Max(highWater, sentOffset);
             }
             lastSend = now;
         }
@@ -134,8 +135,11 @@ namespace EmoteChat
                     case Ack:
                         if (packet.Length != 37 || tx == null || tx.Hash != hash) return;
                         int next = reader.ReadInt32();
-                        if ((txOffset < 0 && next == 0) || (next > txOffset && next <= sentOffset && (next % 768 == 0 || next == tx.Encoded.Length)))
-                        { txOffset = next; lastProgress = now; }
+                        if (next < 0 || next > tx.Encoded.Length) return;
+                        if ((txOffset < 0 && next == 0) || (next > txOffset && next <= highWater && (next % 768 == 0 || next == tx.Encoded.Length)))
+                        { txOffset = next; sentOffset = Math.Max(sentOffset, next); duplicateAcks = 0; lastProgress = now; }
+                        else if (txOffset >= 0 && next == txOffset && next < highWater && fastRetryAt != txOffset && ++duplicateAcks >= 3)
+                        { sentOffset = txOffset; fastRetryAt = txOffset; duplicateAcks = 0; lastProgress = now; }
                         break;
                     case Complete:
                         if (packet.Length != 33 || tx == null || tx.Hash != hash) return;

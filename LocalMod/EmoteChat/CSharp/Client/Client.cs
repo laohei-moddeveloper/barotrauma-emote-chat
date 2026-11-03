@@ -48,7 +48,7 @@ namespace EmoteChat
             command = new DebugConsole.Command("ec", "Emote Chat: open picker (also F8)", _ => OpenPicker());
             DebugConsole.Commands.Add(command);
             cache.Evicted = hash => { if (textures.TryGetValue(hash, out var t)) { t.Dispose(); textures.Remove(hash); } };
-            var package = ContentPackageManager.EnabledPackages.All.FirstOrDefault(p => p.Name.StartsWith("Emote Chat ", StringComparison.Ordinal));
+            var package = ContentPackageManager.EnabledPackages.All.FirstOrDefault(p => p.Name == "表情包聊天和气泡显示 | chat with emote" || p.Name.StartsWith("Emote Chat ", StringComparison.Ordinal));
             library = Path.GetFullPath(Path.Combine(package?.Dir ?? Path.Combine("LocalMods", "EmoteChat"), "Library"));
         }
         private void NewSession()

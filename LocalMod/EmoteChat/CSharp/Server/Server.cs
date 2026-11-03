@@ -23,6 +23,7 @@ namespace EmoteChat
         partial void Install()
         {
             Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPrefix), true);
+            Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPostfix), false);
         }
         private static bool DirectChatPrefix(ChatMessage msg, Client recipient)
         {
@@ -32,12 +33,19 @@ namespace EmoteChat
             // Native routing already chose this recipient. Never broadcast separately.
             if (msg.SenderClient == null || !plugin.peers.TryGetValue(msg.SenderClient, out var owner)
                 || !owner.Owned.ContainsKey(hash) || plugin.cache.Get(hash) == null) return false;
-            if (recipient != null && plugin.peers.TryGetValue(recipient, out var peer))
+            return true;
+        }
+        private static void DirectChatPostfix(ChatMessage msg, Client recipient, bool __runOriginal)
+        {
+            var plugin = Active;
+            string hash = Format.ParseMarker(msg.Text);
+            // Other prefixes may cancel delivery. Grant only after native queuing actually ran.
+            if (!__runOriginal || plugin == null || hash == null || recipient == null || !recipient.ChatMsgQueue.Contains(msg)) return;
+            if (plugin.peers.TryGetValue(recipient, out var peer))
             {
                 if (peer.Grants.Count >= 64 && !peer.Grants.ContainsKey(hash)) peer.Grants.Remove(peer.Grants.OrderBy(p => p.Value).First().Key);
                 peer.Grants[hash] = Now + 60;
             }
-            return true;
         }
         partial void Receive(byte[] packet, Client client)
         {

@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 import zipfile
 
@@ -11,6 +12,34 @@ spec.loader.exec_module(packager)
 
 
 class PackageTests(unittest.TestCase):
+    def test_workshop_staging_without_publishing(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        try:
+            from prepare_workshop import stage, quoted
+            from PIL import Image
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                draft = root / "draft"
+                stage(draft)
+                self.assertTrue((draft / "PENDING-METADATA.json").exists())
+                self.assertFalse((draft / "create-new-item.vdf").exists())
+                self.assertTrue((draft / "content/EmoteChat/filelist.xml").exists())
+                self.assertFalse(any(draft.rglob("*.ecp")))
+                with self.assertRaises(ValueError): stage(draft)
+                cover = root / "cover.png"
+                Image.new("RGB", (32, 32)).save(cover)
+                description = root / "description.txt"
+                description.write_text("测试简介\n感谢测试用灵感提供者", encoding="utf-8")
+                with self.assertRaises(ValueError): stage(root / "bad", "Title\nInjection", cover, description)
+                ready = root / "ready"
+                stage(ready, 'Test "Title"', cover, description)
+                vdf = (ready / "create-new-item.vdf").read_text(encoding="utf-8")
+                self.assertIn('"publishedfileid" "0"', vdf)
+                self.assertIn('Test \\"Title\\"', vdf)
+                self.assertIn('\\n', quoted("a\nb"))
+        finally:
+            sys.path.pop(0)
+
     def test_allowlist_excludes_personal_and_game_files(self):
         with tempfile.TemporaryDirectory() as temp:
             target = Path(temp) / "preview.zip"

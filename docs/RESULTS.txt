@@ -2,16 +2,16 @@ Local validation — 2026-11-03, Linux, .NET 8 runtime / SDK 10.0.402
 Target game: Barotrauma 1.13.5.0 (confirmed by owner)
 
 Python 3.12 + Pillow 13.0.0:
-  5 unittest cases passed (importer and package allowlist).
+  7 unittest cases passed (importer and package allowlist).
   Synthetic transparent PNG and disposal=2 GIF imported successfully.
 
 C# core including Python-to-C# fixtures:
-  PASS 36 checks.
-  11,000 random/structured malformed-format inputs processed (~326ms).
-  Lossy, duplicate-delivery transfer: 184402 bytes, 33.90s simulated at 0ms RTT.
-  Lossy, duplicate-delivery transfer: 184402 bytes, 69.54s simulated at 800ms RTT.
-  100 maximal-pixel-count server validations: 35ms total;
-    10512 managed bytes allocated per validation (no full-frame array).
+  PASS 39 checks.
+  11,000 random/structured malformed-format inputs processed (~296ms).
+  Lossy, duplicate-delivery transfer: 258154 bytes, 36.48s simulated at 0ms RTT.
+  Lossy, duplicate-delivery transfer: 258154 bytes, 69.74s simulated at 800ms RTT.
+  100 maximal-pixel-count server validations: 30ms total;
+    10514 managed bytes allocated per validation (no full-frame array).
   These are isolated measurements, NOT whole-game performance evidence.
 
 Reference-assembly compile:
@@ -19,9 +19,10 @@ Reference-assembly compile:
   Server: succeeded, zero warnings/errors.
 
 Actual downloaded runtime metadata probes:
-  Barotrauma 1.13.5.0: 8 API/layout checks passed.
-  DedicatedServer 1.13.5.0: 6 API checks passed.
-  No game boot, real chat session, Harmony runtime execution, UI rendering or GPU test.
+  Barotrauma 1.13.5.0: 11 API/layout/patch installation checks passed.
+  DedicatedServer 1.13.5.0: 9 API/patch installation checks passed.
+  All hooks were installed/uninstalled against actual downloaded runtime assemblies in isolated processes.
+  No game boot, real chat session, hook invocation, UI rendering or GPU test.
 
 Windows standalone-importer CI: pending remote workflow result.
 Real-game multiplayer, host/dedicated server, UI, graphics lifecycle, and long-session

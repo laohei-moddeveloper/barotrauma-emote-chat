@@ -1,0 +1,36 @@
+Reached Europa, but still chatting one line of text at a time?
+Want to send a reaction image instead of making your crewmates imagine it?
+
+[h2]Just typing messages... getting boring, isn't it?[/h2]
+Bring your own emotes aboard—with images and GIFs in chat and above your character!
+
+[h2]Features[/h2]
+[list]
+[*]Import your own PNG, JPG and GIF files. Send still images or animated reactions.
+[*]Press F8 for a thumbnail picker, then click to send. Local names and transfer progress are supported.
+[*]Emotes appear in chat history. Normal/radio messages also show a bubble above the speaker for about six seconds; private and dead chat do not create overhead bubbles.
+[*]Missing assets sync automatically to eligible recipients. Cached sends reuse the asset, so everyone does not need the same image library beforehand.
+[*]Uses your current chat channel and native distance, radio, private and dead-chat rules. Emote reception and animation can be switched off.
+[/list]
+
+[h2]How to use[/h2]
+1. Requires Barotrauma 1.13.5.0, LuaCs and C# support on the host/dedicated server and clients.
+2. Double-click EmoteImporter.exe in the mod's Tools folder to select images, or drag PNG/JPG/GIF files directly onto that EXE. Source users can run the Python importer.
+3. Join the server, press F8, and click an emote. Reopen the picker after importing new files.
+4. The first transfer shows progress; later sends reuse the cache. The bubble timer starts when the asset is ready.
+
+[h2]Safety and performance[/h2]
+[list]
+[*]Original images are processed only in the separate local importer. Multiplayer sends normalized pixel animations, without source files, local paths or file names.
+[*]The game never decodes remote GIF/PNG/JPG files, executes emote code, or fetches image URLs. The server uses the real sender connection and checks recipient permissions and SHA-256 integrity.
+[*]File size, dimensions, frame count, duration and decompressed size are bounded. Malformed/oversized assets are rejected. Transfers are rate-limited and expire; caches have fixed budgets.
+[*]Validation/decoding runs in background work. Assets share a texture and refresh only when visible and the frame changes, with at most two texture uploads per update—no per-frame disk reads or GIF decoding.
+[/list]
+Long animations keep their first ten seconds; large/high-frame-rate animations are resized or sampled. Your original files stay local.
+
+[h2]Inspiration & recommendation[/h2]
+Special thanks to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=2941124988]Touhou Deep Sea Operation Team (东方潜渊行动组)[/url] and its creators for inspiring this mod!
+Recommended for crewmates who enjoy Touhou-themed characters, outfits, jobs and events in Barotrauma—a little Gensokyo aboard your submarine.
+
+[url=https://github.com/laohei-moddeveloper/barotrauma-emote-chat]Source, installation and validation notes[/url]
+Development preview: automated tests, both compilation targets and isolated patch installation checks passed; real multiplayer and UI acceptance remain pending.

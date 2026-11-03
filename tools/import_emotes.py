@@ -87,13 +87,26 @@ def convert(source: Path) -> bytes:
 
 
 def main():
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(description="将本地 PNG/JPG/GIF 导入 Emote Chat")
-    parser.add_argument("sources", nargs="+", type=Path)
+    parser.add_argument("sources", nargs="*", type=Path)
     tool_path = Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__)
     package_root = tool_path.resolve().parents[1]
     default_library = package_root / "Library" if (package_root / "filelist.xml").exists() else package_root / "LocalMod/EmoteChat/Library"
     parser.add_argument("--library", type=Path, default=default_library)
     args = parser.parse_args()
+    window = None
+    if not args.sources:
+        from tkinter import Tk, filedialog
+        window = Tk()
+        window.withdraw()
+        chosen = filedialog.askopenfilenames(parent=window, title="选择本地表情包", filetypes=[("表情图片", "*.png *.jpg *.jpeg *.gif")])
+        if not chosen:
+            window.destroy()
+            return
+        args.sources = [Path(path) for path in chosen]
     args.library.mkdir(parents=True, exist_ok=True)
     failed = False
     for source in args.sources:
@@ -125,6 +138,11 @@ def main():
             print(f"已导入 {source.name}: {digest[:12]} ({len(result)} bytes)")
         except (OSError, ValueError, EOFError, Image.DecompressionBombError, Image.DecompressionBombWarning) as error:
             print(f"导入失败 {source.name}: {error}"); failed = True
+    if window is not None:
+        from tkinter import messagebox
+        if failed: messagebox.showwarning("表情导入", "部分文件导入失败，请查看提示。", parent=window)
+        else: messagebox.showinfo("表情导入", "导入完成。请重新打开游戏内表情面板。", parent=window)
+        window.destroy()
     raise SystemExit(1 if failed else 0)
 
 

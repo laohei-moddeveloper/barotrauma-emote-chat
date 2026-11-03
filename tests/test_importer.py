@@ -3,6 +3,9 @@ import importlib.util
 import io
 from pathlib import Path
 import struct
+import subprocess
+import os
+import sys
 import tempfile
 import unittest
 import zlib
@@ -43,14 +46,14 @@ class ImportTests(unittest.TestCase):
     def test_gif_compositing_timing_and_frame_cap(self):
         source = self.root / "animated.gif"
         frames = []
-        for i in range(120):
+        for i in range(240):
             frame = Image.new("RGBA", (96, 64), (0, 0, 0, 0))
             ImageDraw.Draw(frame).rectangle((i % 70, 10, i % 70 + 20, 30), fill=(255, 100, i, 255))
             frames.append(frame)
         frames[0].save(source, save_all=True, append_images=frames[1:], duration=40, loop=0, disposal=2)
         w, h, count, delays, pixels = unpack(importer.convert(source))
         self.assertTrue(1 < count <= 48)
-        self.assertEqual(sum(delays), 4800)
+        self.assertEqual(sum(delays), 9600)
         self.assertGreaterEqual(min(delays), 80)
         self.assertGreater(len(set(pixels[i:i + w * h * 4] for i in range(0, len(pixels), w * h * 4))), 1)
         # Decoded bytes outside the moving rectangle remain transparent, not accumulated trails.
@@ -75,6 +78,15 @@ class ImportTests(unittest.TestCase):
         with self.assertRaises(ValueError): importer.convert(link)
         source.write_bytes(source.read_bytes()[:40])
         with self.assertRaises(OSError): importer.convert(source)
+
+    def test_non_utf8_console_and_unicode_filename(self):
+        source = self.root / "中文表情.png"
+        Image.new("RGBA", (8, 8)).save(source)
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "cp1252"
+        result = subprocess.run([sys.executable, str(Path(__file__).parents[1] / "tools/import_emotes.py"), str(source), "--library", str(self.root / "library")], capture_output=True, env=env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("已导入", result.stdout.decode("utf-8"))
 
 
 if __name__ == "__main__":

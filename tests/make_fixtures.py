@@ -12,6 +12,7 @@ out = Path(sys.argv[1]) if len(sys.argv) > 1 else root / ".test-fixtures"
 out.mkdir(parents=True, exist_ok=True)
 image = Image.new("RGBA", (128, 64), (0, 100, 200, 128))
 image.save(out / "still.png")
+image.save(out / "中文表情.png")
 frames = []
 for i in range(12):
     frame = Image.new("RGBA", (96, 96), (0, 0, 0, 0))
