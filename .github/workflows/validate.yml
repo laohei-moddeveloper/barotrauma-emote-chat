@@ -20,7 +20,9 @@ jobs:
       - name: Importer tests and fixtures
         run: |
           python -m pip install -r tools/requirements.txt pyinstaller==6.22.3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m unittest discover -s tests -p "test_*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/make_fixtures.py
       - name: Core and cross-language tests
         run: dotnet run --project tests/CoreTests.csproj -- .test-fixtures/still.ecp .test-fixtures/motion.ecp
@@ -43,11 +45,13 @@ jobs:
           build/importer/EmoteImporter.exe .test-fixtures/中文表情.png .test-fixtures/motion.gif --library .test-fixtures/exe-library
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package.py --importer build/importer/EmoteImporter.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Expand-Archive dist/EmoteChat-0.1.0-preview.zip .test-fixtures/installed
           .test-fixtures/installed/LocalMods/EmoteChat/Tools/EmoteImporter.exe .test-fixtures/motion.gif
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           if (-not (Get-ChildItem .test-fixtures/installed/LocalMods/EmoteChat/Library -Filter *.ecp)) { throw 'Default importer path is wrong' }
           python -m unittest discover -s tests -p "test_package.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package_workshop.py --importer build/importer/EmoteImporter.exe
       - name: Parse workshop PowerShell scripts
         shell: pwsh

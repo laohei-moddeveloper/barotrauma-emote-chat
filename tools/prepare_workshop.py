@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import tempfile
 
-from package import ROOT
+from package import ROOT, log
 
 
 def quoted(value: str) -> str:
@@ -69,7 +69,7 @@ def stage(destination: Path, title: str | None = None, cover: Path | None = None
         else:
             (scratch / "stage/PENDING-METADATA.json").write_text(json.dumps({"new_item": True, "appid": 602960, "pending": ["title", "cover", "inspiration credit in description"], "upload_attempted": False}, indent=2), encoding="utf-8")
         shutil.move(str(scratch / "stage"), str(destination))
-    print("已准备工坊内容，未登录或上传：" + str(destination))
+    log("已准备工坊内容，未登录或上传：" + str(destination))
 
 
 if __name__ == "__main__":

@@ -1,10 +1,16 @@
 """Explicit publication allowlist; never copy installed games or personal libraries."""
 import argparse
 import hashlib
+import sys
 from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def log(message: str):
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(message.encode(encoding, errors="backslashreplace").decode(encoding))
 
 
 def build(output: Path, importer: Path | None = None):
@@ -30,7 +36,7 @@ def build(output: Path, importer: Path | None = None):
             info = zipfile.ZipInfo(name, (2026, 11, 3, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, path.read_bytes())
-    print(f"{output.name}: {len(files)} files, SHA256 {hashlib.sha256(output.read_bytes()).hexdigest()}")
+    log(f"{output.name}: {len(files)} files, SHA256 {hashlib.sha256(output.read_bytes()).hexdigest()}")
 
 
 if __name__ == "__main__":
