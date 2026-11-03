@@ -33,4 +33,3 @@ Special thanks to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=29
 Recommended for crewmates who enjoy Touhou-themed characters, outfits, jobs and events in Barotrauma—a little Gensokyo aboard your submarine.
 
 [url=https://github.com/laohei-moddeveloper/barotrauma-emote-chat]Source, installation and validation notes[/url]
-Development preview: automated tests, both compilation targets and isolated patch installation checks passed; real multiplayer and UI acceptance remain pending.

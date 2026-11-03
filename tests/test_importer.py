@@ -70,14 +70,23 @@ class ImportTests(unittest.TestCase):
         blob.write_bytes(b"\0" * (8 * 1024 * 1024 + 1))
         with self.assertRaises(ValueError): importer.convert(blob)
 
-    def test_rejects_symlink_and_truncation(self):
+    def test_rejects_truncation(self):
+        source = self.root / "test.png"
+        Image.new("RGB", (64, 64)).save(source)
+        source.write_bytes(source.read_bytes()[:40])
+        with self.assertRaises(OSError): importer.convert(source)
+
+    def test_rejects_symlink(self):
         source = self.root / "test.png"
         Image.new("RGB", (64, 64)).save(source)
         link = self.root / "link.png"
-        link.symlink_to(source)
+        try:
+            link.symlink_to(source)
+        except OSError as error:
+            if getattr(error, "winerror", None) == 1314:
+                self.skipTest("Windows account lacks symbolic-link privilege")
+            raise
         with self.assertRaises(ValueError): importer.convert(link)
-        source.write_bytes(source.read_bytes()[:40])
-        with self.assertRaises(OSError): importer.convert(source)
 
     def test_non_utf8_console_and_unicode_filename(self):
         source = self.root / "中文表情.png"

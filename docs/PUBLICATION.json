@@ -1,9 +1,9 @@
 {
   "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
-  "release_status": "preview-awaiting-real-game-validation",
+  "release_status": "published-preview-game-ui-not-tested",
   "workshop_app_id": 602960,
-  "workshop_item_id": null,
-  "workshop_create_new": true,
+  "workshop_item_id": "3833045408",
+  "workshop_create_new": false,
   "workshop_title": {
     "schinese": "表情包聊天和气泡显示",
     "english": "chat with emote"
@@ -25,5 +25,21 @@
   "github_release_tag": "v0.1.0-preview",
   "verified_source_revision": "8a32712c48d69675907a05d153bd15022a3c68e5",
   "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41661944454",
-  "workshop_status": "prepared-awaiting-local-game-validation-and-steam-session"
+  "workshop_status": "published-public-local-isolated-validation",
+  "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3833045408",
+  "local_validation": {
+    "client_server_compile_actual_publicized": true,
+    "python_passed": 7,
+    "python_skipped": 1,
+    "core_checks": 39,
+    "real_game_started": false,
+    "reason": "User requested background-only validation"
+  },
+  "workshop_verification": {
+    "schinese": true,
+    "english": true,
+    "public": true,
+    "cover_sha256_match": true,
+    "download_all_files_match": true
+  }
 }
