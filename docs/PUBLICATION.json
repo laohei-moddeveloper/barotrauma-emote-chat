@@ -1,0 +1,20 @@
+{
+  "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
+  "release_status": "preview-awaiting-real-game-validation",
+  "workshop_app_id": 602960,
+  "workshop_item_id": null,
+  "workshop_create_new": true,
+  "workshop_title": null,
+  "workshop_cover": null,
+  "inspiration_credit": null,
+  "pending_user_metadata": [
+    "其他工作完成后确认创意工坊标题",
+    "其他工作完成后确认创意工坊封面",
+    "提醒用户在简介中感谢灵感提供者，并确认姓名或昵称和感谢文字"
+  ],
+  "excluded_from_publication": [
+    "game assemblies and third-party source trees",
+    "local imported emotes and names.json",
+    "credentials and private migration materials"
+  ]
+}

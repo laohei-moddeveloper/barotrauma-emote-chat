@@ -1,0 +1,13 @@
+bin/
+obj/
+__pycache__/
+.venv/
+dist/
+.references/
+.test-fixtures/
+build/
+*.spec
+*.exe
+*.ecp
+LocalMod/EmoteChat/Library/*
+!LocalMod/EmoteChat/Library/.gitkeep

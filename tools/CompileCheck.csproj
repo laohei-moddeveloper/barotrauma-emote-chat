@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <OutputType>Library</OutputType>
+    <Flavor Condition="'$(Flavor)' == ''">Client</Flavor>
+    <RefsDir Condition="'$(RefsDir)' == ''">$(MSBuildThisFileDirectory)../.references</RefsDir>
+    <GameAssembly Condition="'$(Flavor)' == 'Client'">Barotrauma</GameAssembly>
+    <GameAssembly Condition="'$(Flavor)' == 'Server'">DedicatedServer</GameAssembly>
+    <DefineConstants>$(DefineConstants);$(Flavor)</DefineConstants>
+    <OutputPath>bin/$(Flavor)/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/*.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/$(Flavor)/*.cs" />
+    <Reference Include="$(GameAssembly)"><HintPath>$(RefsDir)/Windows/$(GameAssembly).dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BarotraumaCore"><HintPath>$(RefsDir)/Windows/BarotraumaCore.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoGame.Framework.Windows.NetStandard"><HintPath>$(RefsDir)/MonoGame.Framework.Windows.NetStandard.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(RefsDir)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="XNATypes"><HintPath>$(RefsDir)/XNATypes.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

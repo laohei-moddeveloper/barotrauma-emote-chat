@@ -1,0 +1,50 @@
+name: Validate and package preview
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Importer tests and fixtures
+        run: |
+          python -m pip install -r tools/requirements.txt pyinstaller==6.22.3
+          python -m unittest discover -s tests -p "test_*.py" -v
+          python tests/make_fixtures.py
+      - name: Core and cross-language tests
+        run: dotnet run --project tests/CoreTests.csproj -- .test-fixtures/still.ecp .test-fixtures/motion.ecp
+      - name: Download audited reference assemblies
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://github.com/evilfactory/LuaCsForBarotrauma/releases/download/latest/luacsforbarotrauma_refs.zip' -OutFile refs.zip
+          if ((Get-FileHash refs.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne '0fcf87af80a33575346a959b29f9f1af9e8c3f6f569974e35ab56007d5cdb487') { throw 'References changed. Audit the new game API before updating the pin.' }
+          Expand-Archive refs.zip .references
+      - name: Compile both targets
+        run: |
+          dotnet build tools/CompileCheck.csproj -p:Flavor=Client --nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet build tools/CompileCheck.csproj -p:Flavor=Server --nologo
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build standalone local importer
+        run: python -m PyInstaller --clean --onefile --name EmoteImporter --distpath build/importer tools/import_emotes.py
+      - name: Test executable and package
+        run: |
+          build/importer/EmoteImporter.exe .test-fixtures/still.png .test-fixtures/motion.gif --library .test-fixtures/exe-library
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python tools/package.py --importer build/importer/EmoteImporter.exe
+          python -m unittest discover -s tests -p "test_package.py" -v
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: EmoteChat-0.1.0-preview
+          path: dist/EmoteChat-0.1.0-preview.zip
