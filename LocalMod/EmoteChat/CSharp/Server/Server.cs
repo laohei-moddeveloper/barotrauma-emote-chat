@@ -23,21 +23,21 @@ namespace EmoteChat
         private int roundRobin;
         [ThreadStatic] private static string routingHash;
         [ThreadStatic] private static Client routingSender;
-        private struct RoutingState { public string Hash; public Client Sender; }
+        private struct RoutingState { public bool Initialized; public string Hash; public Client Sender; }
         private static void RoutePrefix(string message, Client senderClient, out RoutingState __state)
         {
-            __state = new RoutingState { Hash = routingHash, Sender = routingSender };
+            __state = new RoutingState { Initialized = true, Hash = routingHash, Sender = routingSender };
             routingHash = Format.FindMarker(message); routingSender = senderClient;
         }
         private static Exception RouteFinalizer(Exception __exception, RoutingState __state)
         {
-            routingHash = __state.Hash; routingSender = __state.Sender;
+            if (__state.Initialized) { routingHash = __state.Hash; routingSender = __state.Sender; }
             return __exception;
         }
         partial void Install()
         {
             var route = AccessTools.Method(typeof(GameServer), "SendChatMessage", new[] { typeof(string), typeof(ChatMessageType?), typeof(Client), typeof(Character), typeof(PlayerConnectionChangeType), typeof(ChatMode) });
-            harmony.Patch(route, prefix: new HarmonyMethod(typeof(Plugin), nameof(RoutePrefix)), finalizer: new HarmonyMethod(typeof(Plugin), nameof(RouteFinalizer)));
+            harmony.Patch(route, prefix: new HarmonyMethod(typeof(Plugin), nameof(RoutePrefix)) { priority = Priority.First }, finalizer: new HarmonyMethod(typeof(Plugin), nameof(RouteFinalizer)));
             Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPrefix), true);
             Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPostfix), false);
         }
