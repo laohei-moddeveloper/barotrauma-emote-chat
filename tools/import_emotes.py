@@ -15,8 +15,6 @@ from PIL import Image, ImageOps
 
 MAX_FILE = 256 * 1024
 MAX_INPUT = 8 * 1024 * 1024
-Image.MAX_IMAGE_PIXELS = 1024 * 1024
-warnings.simplefilter("error", Image.DecompressionBombWarning)
 
 
 def convert(source: Path) -> bytes:
@@ -27,7 +25,9 @@ def convert(source: Path) -> bytes:
         data = file.read(MAX_INPUT + 1)
     if len(data) > MAX_INPUT:
         raise ValueError("文件超过限制")
-    with Image.open(io.BytesIO(data)) as image:
+    # Check the explicit 1024-side limit before load/convert, without changing Pillow globals
+    # used by unrelated tools (for example the larger Workshop cover).
+    with warnings.catch_warnings(action="error", category=Image.DecompressionBombWarning), Image.open(io.BytesIO(data)) as image:
         if image.format not in {"PNG", "JPEG", "GIF"}:
             raise ValueError("仅支持 PNG、JPG、GIF")
         if max(image.size) > 1024 or image.width * image.height > 1024 * 1024:
