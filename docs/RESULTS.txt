@@ -1,3 +1,19 @@
+0.1.1 validation — 2026-11-04
+Source: b0f1eca582e8839bc54e2612aef4b9b4e8b938c5
+Windows CI: PASS https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41770117480
+Release: https://github.com/laohei-moddeveloper/barotrauma-emote-chat/releases/tag/v0.1.1
+11 Python tests, 55 core checks, 48 native API/hook/layout checks.
+Actual Direct3D/WARP + SpriteBatch: animated head/chat pixel readback, bounds,
+and imported short GIF frame texture readback PASSED.
+Chinese filenames, portable EXE canonical library, both targets and both packages PASSED.
+258154 byte lossy transfer: 2.80s simulated at 0ms RTT, 12.70s at 800ms RTT.
+16 uncached recipients: uploader 2.12s, all recipients 36.45s; server shared one
+compressed asset and stayed under 128 KiB/s total output. 10000 congested ticks:
+zero unsendable packet allocations. These are isolated tests, not whole-game FPS.
+Actual user multiplayer/GPU-driver/mod-combination retest and Steam update remain local tasks.
+Workshop ID stays 3833045408; the update bundle includes its persisted state.
+
+--- Previous 0.1.0 baseline ---
 Local validation — 2026-11-03, Linux, .NET 8 runtime / SDK 10.0.402
 Target game: Barotrauma 1.13.5.0 (confirmed by owner)
 
