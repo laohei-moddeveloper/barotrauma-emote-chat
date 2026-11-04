@@ -1,6 +1,6 @@
 {
   "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
-  "release_status": "0.2.0-validation-in-progress-workshop-update-pending",
+  "release_status": "0.2.0-github-published-workshop-update-pending",
   "workshop_app_id": 602960,
   "workshop_item_id": "3833045408",
   "workshop_create_new": false,
@@ -21,19 +21,19 @@
     "credentials and private migration materials"
   ],
   "cover_selection": "A",
-  "github_status": "0.2.0-validation-in-progress",
-  "github_release_tag": "v0.1.1",
-  "verified_source_revision": "b0f1eca582e8839bc54e2612aef4b9b4e8b938c5",
-  "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41770117480",
-  "workshop_status": "0.1.0-public-0.1.1-fix-awaiting-update",
+  "github_status": "0.2.0-dual-target-release-published",
+  "github_release_tag": "v0.2.0",
+  "verified_source_revision": "374a193486f7c16b8bc686c4c20124d82a10c2d0",
+  "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41775108465",
+  "workshop_status": "existing-public-item-0.2.0-update-pending",
   "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3833045408",
   "local_validation": {
     "client_server_compile_actual_publicized": true,
-    "python_passed": 7,
-    "python_skipped": 1,
-    "core_checks": 39,
+    "python_passed": 11,
+    "python_skipped": 0,
+    "core_checks": 58,
     "real_game_started": false,
-    "reason": "User requested background-only validation"
+    "reason": "Cloud compilation, isolated native hooks/layout, and Windows software GPU; no user game or Steam session"
   },
   "workshop_verification": {
     "schinese": true,
@@ -46,11 +46,21 @@
   "pending_update_requires": "server and all clients, protocol v2, new presentation hooks",
   "fix_validation": {
     "python_tests": 11,
-    "core_checks": 55,
-    "native_client_checks": 48,
+    "core_checks": 58,
+    "native_client_checks": 64,
     "software_warp_animation_pixel_readback": true,
     "distribution_clients": 16,
     "server_egress_KiBps": 128,
     "real_user_multiplayer_retested": false
-  }
+  },
+  "ui_preview": {
+    "url": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/releases/download/v0.2.0/EmoteChat-0.2.0-ui-preview.png",
+    "kind": "production painter with synthetic art; not an in-game screenshot",
+    "graphics_test_revision": "6125e06777183b0139135a6cdb7c74366f44d3f3",
+    "production_files_unchanged_from_release_tag": true,
+    "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41775523549",
+    "native_blend_transparent_corner_readback_passed": true
+  },
+  "published_asset_validation": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41775523549",
+  "package_sha256": "f7fe0652ccdbeaacc5217fe15003fedeef507fe252719498677392330648dcba"
 }

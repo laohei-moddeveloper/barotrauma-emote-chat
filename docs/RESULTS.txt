@@ -1,9 +1,11 @@
-0.2.0 validation (current UI change; see CI for Windows result)
+0.2.0 validation (GitHub release published; Steam update pending)
 - Client and server compile against audited 1.13.5.0 refs: pass, zero warnings.
 - Core: 58 checks, 11,000 malformed/structured inputs.
 - Native runtime: 64 hook/sanitization/layout checks; no game boot.
 - Existing 16-recipient cap remains 128 KiB/s; congested ticks allocate no packets.
-- Windows software GPU animation + custom painter snapshot run in CI.
+- Windows software GPU animation + custom painter snapshot: pass.
+- Release runtime source 374a193; Windows CI 41775108465.
+- Follow-up 6125e06 only aligns preview test with native straight-alpha blending; production files are unchanged.
 - User's local multiplayer / Steam upload not executed by this cloud session.
 
 Historical results follow:

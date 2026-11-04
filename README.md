@@ -55,3 +55,7 @@ python tools/package.py
 0.2.0 的修复和验证范围见 [本轮修复记录](docs/FIXES-0.2.0.zh-CN.md)。服务器与客户端必须一起升级到 0.2.0（协议 v2）；已有工坊条目只更新，不新建。
 
 0.2.0 提供自绘圆角面板、搜索、最近发送与预览；原生聊天渲染之前拦截表情标识，服务器丢弃被距离干扰损坏的标识，避免把内部代码当作聊天文字显示。
+
+界面外观示例采用生产绘制器与合成表情，并非实机截图：
+
+![自绘表情面板外观示例](https://github.com/laohei-moddeveloper/barotrauma-emote-chat/releases/download/v0.2.0/EmoteChat-0.2.0-ui-preview.png?revision=6125e06)
