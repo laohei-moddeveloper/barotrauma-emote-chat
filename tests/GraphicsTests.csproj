@@ -10,6 +10,7 @@
     <Reference Include="SharpDX.Direct3D11"><HintPath>$(RuntimeDir)/SharpDX.Direct3D11.dll</HintPath></Reference>
     <Reference Include="SharpDX.DXGI"><HintPath>$(RuntimeDir)/SharpDX.DXGI.dll</HintPath></Reference>
     <Reference Include="SharpDX.Direct2D1"><HintPath>$(RuntimeDir)/SharpDX.Direct2D1.dll</HintPath></Reference>
-    <None Include="$(RuntimeDir)/*.dll" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+    <!-- Do not copy the game's self-contained CLR/host DLLs into this framework-dependent test. -->
+    <None Include="$(RuntimeDir)/SharpDX*.dll" CopyToOutputDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
