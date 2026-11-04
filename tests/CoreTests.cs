@@ -204,6 +204,46 @@ static class Tests
                     Check((bool)hooks.GetMethod("ReceiveChatPrefix", flags).Invoke(null, new object[] { null, message }), "ordinary receive pipeline unaffected");
                     Check(!(bool)hooks.GetMethod("SpeechPrefix", flags).Invoke(null, new object[] { marker }), "native overhead suppresses transport");
                     Check((bool)hooks.GetMethod("SpeechPrefix", flags).Invoke(null, new object[] { "normal chat" }), "ordinary speech unaffected");
+                    var senderField = messageType.GetField("SenderName", flags);
+                    foreach (string name in new[] { "中文船员", "Player One", "‖color:red‖nickname" })
+                    {
+                        senderField.SetValue(message, name);
+                        Check((string)hooks.GetMethod("SenderLabel", flags).Invoke(null, new[] { message }) == name, "server-provided game nickname preserved independently of image metadata");
+                    }
+                    senderField.SetValue(message, "Player\nName");
+                    Check((string)hooks.GetMethod("SenderLabel", flags).Invoke(null, new[] { message }) == "PlayerName", "nickname controls cannot add fake chat lines");
+                    senderField.SetValue(message, new string('n', 256));
+                    Check(((string)hooks.GetMethod("SenderLabel", flags).Invoke(null, new[] { message })).Length == 128, "nickname display is bounded");
+                    string testLibrary = Path.Combine(Path.GetTempPath(), "emote-client-library-" + Guid.NewGuid().ToString("N"));
+                    try
+                    {
+                        hooks.GetField("library", flags).SetValue(pluginInstance, testLibrary);
+                        byte[] stored = Image(); string storedHash = Format.Hash(stored);
+                        object pluginAsset = plugin.GetType("EmoteChat.Format").GetMethod("Decode").Invoke(null, new object[] { stored, storedHash, true });
+                        object clientCache = hooks.GetField("cache", flags).GetValue(pluginInstance);
+                        clientCache.GetType().GetMethod("Put").Invoke(clientCache, new[] { pluginAsset });
+                        hooks.GetField("previewHash", flags).SetValue(pluginInstance, storedHash);
+                        void storeSelection(bool favorite)
+                        {
+                            hooks.GetMethod("StoreSelection", flags).Invoke(pluginInstance, new object[] { favorite });
+                            ((System.Threading.Tasks.Task)hooks.GetField("libraryWork", flags).GetValue(pluginInstance)).GetAwaiter().GetResult();
+                            hooks.GetMethod("TickLibrary", flags).Invoke(pluginInstance, null);
+                        }
+                        storeSelection(false);
+                        Check(File.ReadAllBytes(Path.Combine(testLibrary, storedHash + ".ecp")).SequenceEqual(stored), "actual client save worker persists received image bytes");
+                        Check(((System.Collections.IDictionary)hooks.GetField("localFiles", flags).GetValue(pluginInstance)).Contains(storedHash), "saved received image becomes selectable for sending");
+                        storeSelection(true);
+                        hooks.GetMethod("ReadFavoriteList", flags).Invoke(pluginInstance, null);
+                        Check(((IEnumerable<string>)hooks.GetField("favorites", flags).GetValue(pluginInstance)).Contains(storedHash), "actual client favorite survives preference reload");
+                        storeSelection(true);
+                        Check(!((IEnumerable<string>)hooks.GetField("favorites", flags).GetValue(pluginInstance)).Any() && File.Exists(Path.Combine(testLibrary, storedHash + ".ecp")), "client unfavorite keeps the image in its library");
+                        clientCache.GetType().GetMethod("Clear").Invoke(clientCache, null);
+                        hooks.GetMethod("StoreSelection", flags).Invoke(pluginInstance, new object[] { false });
+                        Check(hooks.GetField("libraryWork", flags).GetValue(pluginInstance) == null, "expired received cache does not trigger an extra download or write");
+                        for (int n = 0; n < 40; n++) hooks.GetMethod("RememberReceived", flags).Invoke(pluginInstance, new object[] { n.ToString("x64"), "Player" });
+                        Check(((System.Collections.ICollection)hooks.GetField("receivedEmotes", flags).GetValue(pluginInstance)).Count == 32 && ((System.Collections.IDictionary)hooks.GetField("receivedSenders", flags).GetValue(pluginInstance)).Count == 32, "received gallery keeps bounded metadata only");
+                    }
+                    finally { if (Directory.Exists(testLibrary)) Directory.Delete(testLibrary, true); }
                     // Test-only font/scale inputs let real native RectTransform/GUILayoutGroup run without game assets.
                     var layoutHarmony = Activator.CreateInstance(harmonyType, "emotechat.isolated.layout.inputs");
                     void inputPatch(MethodInfo target, string prefix)
@@ -247,7 +287,7 @@ static class Tests
                             object row = frame(300, 23, canvasRect), rowRect = rectField.GetValue(row);
                             rectType.GetProperty("AbsoluteOffset").SetValue(rowRect, point(37, 41));
 
-                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { row, (object)new string('a', 64), null, false });
+                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { row, (object)new string('a', 64), null, false, null });
                             var rowChildren = (System.Collections.IEnumerable)childrenField.GetValue(rowRect);
                             object image = rowChildren.Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single(c => c.GetType().Name == "GUICustomComponent");
                             Check(coord(image, "Y") == coord(row, "Y") + Math.Max(1, (int)(6 * scale)), "pure image row has only bounded padding at scale " + scale);
@@ -257,12 +297,25 @@ static class Tests
                             Check(coord(image, "Right") <= coord(row, "Right"), "native image stays inside narrow resized chat row");
 
                             object popup = frame(80, 50, canvasRect);
-                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { popup, (object)new string('b', 64), null, true });
+                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { popup, (object)new string('b', 64), null, true, null });
                             var popupChildren = (System.Collections.IEnumerable)childrenField.GetValue(rectField.GetValue(popup));
                             object popupImage = popupChildren.Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single();
                             Check(coord(popupImage, "Width") == (int)(88 * scale), "popup keeps intended image size");
                             Check(coord(popupImage, "Y") >= coord(popup, "Y"), "popup image begins within popup");
                             Check(coord(popupImage, "Bottom") <= coord(popup, "Bottom"), "popup reserves image height");
+                        }
+                        foreach (float scale in new[] { 0.75f, 1f, 1.5f, 2f })
+                        foreach (bool popupMode in new[] { false, true })
+                        {
+                            layoutScale = scale;
+                            object namedRow = frame(popupMode ? 80 : 300, 23, canvasRect), namedRect = rectField.GetValue(namedRow);
+                            object header = frame(1, 22, namedRect);
+                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { namedRow, (object)new string('c', 64), null, popupMode, header });
+                            object image = ((System.Collections.IEnumerable)childrenField.GetValue(namedRect)).Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single(c => c.GetType().Name == "GUICustomComponent");
+                            Check(coord(image, "Y") >= coord(header, "Bottom"), "nickname header does not overlap image at scale " + scale);
+                            Check(coord(image, "Bottom") <= coord(namedRow, "Bottom"), "named row reserves nickname plus image height");
+                            if (!popupMode) rectType.GetMethod("Resize", new[] { pointType, typeof(bool) }).Invoke(namedRect, new[] { point(100, coord(namedRow, "Height")), (object)false });
+                            Check(coord(header, "Right") <= coord(namedRow, "Right") && coord(image, "Right") <= coord(namedRow, "Right"), "nickname and image fit narrow chat/popup bounds");
                         }
                         hooks.GetMethod("ClearPresentation", flags).Invoke(pluginInstance, null);
                     }
@@ -278,6 +331,7 @@ static class Tests
         if (args.Length > 0 && args[0] == "--probe") { Probe(Path.GetFullPath(args[1]), args[2], args.Length > 3 ? args[3] : null); return; }
         if (args.Length > 0 && args[0] == "--library-location") { Console.WriteLine(LibraryLocation.UserLibrary); return; }
         var encoded = Image(); var asset = Decode(encoded);
+        LibraryTests.Run(Check, encoded);
         Check(asset.Pixels.Length == 2048 && asset.Frame(0.15) == 1 && asset.Frame(0.2) == 0, "decode and animation timing");
         byte[] animatedPixels = Enumerable.Repeat((byte)17, 256).Concat(Enumerable.Repeat((byte)203, 256)).ToArray();
         var animation = new AnimationPlayback(new Asset(new string('a', 64), Array.Empty<byte>(), 8, 8, new[] { 50, 50 }, animatedPixels));

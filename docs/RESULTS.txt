@@ -1,3 +1,11 @@
+0.3.0 nickname, library and favorites
+- Native server-provided sender name rendered as a separate plain-text chat header.
+- Expanded/collapsed/lobby chat reserve nickname height; overhead remains image-only.
+- Native API, metadata suppression, names and layout: 99 checks passed locally.
+- No protocol, transfer budget, server code or asset decoding changes.
+- Core: 72 checks including local save/favorites/security persistence (Windows may skip 2 symlink checks if privilege unavailable).
+- Windows packaging/graphics validation runs in CI; real local multiplayer/Steam update pending.
+
 0.2.0 validation (GitHub release published; Steam update pending)
 - Client and server compile against audited 1.13.5.0 refs: pass, zero warnings.
 - Core: 58 checks, 11,000 malformed/structured inputs.

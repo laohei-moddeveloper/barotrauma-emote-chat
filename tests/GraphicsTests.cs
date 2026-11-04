@@ -32,9 +32,11 @@ static class GraphicsTests
         Text(0,24,16); Text(1,24,54,0.8f);
         Round(712,22,124,32,new Color(53,66,98),10); Text(11,730,22);
         Round(852,22,40,32,PickerPaint.Card,10); Text(12,865,22);
-        Round(24,110,78,34,new Color(53,66,98),10); Text(2,45,111);
-        Round(110,110,78,34,PickerPaint.Card,10); Text(3,131,111);
-        Round(204,110,466,34,PickerPaint.Card,10); Text(4,220,110,0.55f);
+        Round(24,110,62,34,new Color(53,66,98),10); Text(2,37,111);
+        Round(94,110,62,34,PickerPaint.Card,10); Text(3,107,111);
+        Round(164,110,62,34,PickerPaint.Card,10); Text(13,177,111);
+        Round(234,110,62,34,PickerPaint.Card,10); Text(14,247,111);
+        Round(316,110,354,34,PickerPaint.Card,10); Text(4,332,110,0.55f);
         Round(686,110,210,436,new Color(29,33,41),16); Text(5,704,124,0.65f);
         for(int i=0;i<15;i++)
         {
@@ -44,7 +46,10 @@ static class GraphicsTests
             batch.Draw(art,R(x+18,y+18,83,83),new Rectangle((i%8)*128,0,128,128),Color.White);
         }
         batch.Draw(art,R(704,174,174,174),new Rectangle(0,0,128,128),Color.White);
-        Text(6,704,364); Text(7,24,560,0.65f);
+        Text(6,704,364);
+        Round(704,450,174,34,PickerPaint.Card,10); Text(15,756,452);
+        Round(704,494,174,34,new Color(53,66,98),10); Text(16,724,496);
+        Text(7,24,560,0.65f);
         Round(582,566,104,32,PickerPaint.Card,10);Text(8,596,566);
         Round(698,566,88,32,PickerPaint.Card,10);Text(9,724,566);
         Round(798,566,98,32,PickerPaint.Accent,10);Text(10,829,566);
@@ -53,7 +58,7 @@ static class GraphicsTests
         Check(colors[101*1120+101] == new Color(11,16,24), "transparent rounded corner exactly preserves backdrop with native UI blend");
         Check(colors[190*1120+500] == PickerPaint.Surface, "panel center uses custom surface");
         Directory.CreateDirectory("dist");
-        using var output=File.Create("dist/EmoteChat-0.2.0-ui-preview.png"); target.SaveAsPng(output,1120,820);
+        using var output=File.Create("dist/EmoteChat-0.3.0-ui-preview.png"); target.SaveAsPng(output,1120,820);
         Console.WriteLine("PASS production rounded painter: offscreen GPU UI fixture (synthetic art; not an in-game screenshot)");
     }
     static void Main(string[] args)

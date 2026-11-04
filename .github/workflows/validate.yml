@@ -58,7 +58,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package.py --importer build/importer/EmoteImporter.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Expand-Archive dist/EmoteChat-0.2.0.zip .test-fixtures/installed
+          Expand-Archive dist/EmoteChat-0.3.0.zip .test-fixtures/installed
           .test-fixtures/installed/LocalMods/EmoteChat/Tools/EmoteImporter.exe .test-fixtures/motion.gif
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $library=dotnet run --no-build --project tests/CoreTests.csproj -- --library-location
@@ -82,7 +82,7 @@ jobs:
           }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: EmoteChat-0.2.0
+          name: EmoteChat-0.3.0
           path: |
             dist/*.zip
             dist/*ui-preview.png

@@ -13,7 +13,6 @@ namespace EmoteChat
         private readonly Dictionary<string, string> localNames = new Dictionary<string, string>();
         private readonly List<string> recent = new List<string>();
         private string previewHash, search = "";
-        private bool recentOnly;
         private int pickerWidth, pickerHeight;
         private float pickerScale, uiScale;
         private int PickerPixels(int value) => Math.Max(1, (int)(value * uiScale));
@@ -25,11 +24,11 @@ namespace EmoteChat
         {
             pickerSearch?.Deselect(); pickerSearch = null;
             if (picker != null) { GUIMessageBox.MessageBoxes.Remove(picker); picker.RectTransform.Parent = null; }
-            picker = null; pickerList = null; status = null; previewLabel = null; sendButton = null;
+            picker = null; pickerList = null; status = null; previewLabel = null; sendButton = null; saveButton = null; favoriteButton = null;
         }
         private string LocalLabel(string hash)
         {
-            string name = localNames.TryGetValue(hash, out var label) && label != null ? label : "表情";
+            string name = localNames.TryGetValue(hash, out var label) && label != null ? label : receivedSenders.TryGetValue(hash, out var sender) && !string.IsNullOrWhiteSpace(sender) ? "来自 " + sender : "表情";
             return new string(name.Where(c => !char.IsControl(c) && c != '‖' && c != '<' && c != '>').Take(20).ToArray());
         }
         private GUITextBlock Label(Rectangle rect, GUIComponent parent, string text, Color color, bool small = true)
@@ -53,8 +52,8 @@ namespace EmoteChat
         private void OpenPicker()
         {
             if (picker != null) { ClosePicker(); return; }
-            ReadLibrary();
-            if (previewHash != null && !localFiles.ContainsKey(previewHash)) previewHash = null;
+            ReadLibrary(); ReadFavoriteList();
+            if (previewHash != null && !localFiles.ContainsKey(previewHash) && !receivedEmotes.Contains(previewHash)) previewHash = null;
             pickerWidth = GameMain.GraphicsWidth; pickerHeight = GameMain.GraphicsHeight; pickerScale = GUI.Scale;
             uiScale = Math.Max(0.6f, Math.Min(GUI.Scale, Math.Min(pickerWidth / 1000f, pickerHeight / 700f)));
             int S(int n) => PickerPixels(n);
@@ -80,12 +79,16 @@ namespace EmoteChat
                 return true;
             }, () => enabled);
             Pill(new Rectangle(width - S(68), S(22), S(40), S(32)), panel, "×", () => { ClosePicker(); return true; });
-            Pill(new Rectangle(margin, top, S(78), S(34)), panel, "全部", () => { recentOnly = false; RebuildCards(); return true; }, () => !recentOnly);
-            Pill(new Rectangle(margin + S(86), top, S(78), S(34)), panel, "最近", () => { recentOnly = true; RebuildCards(); return true; }, () => recentOnly);
+            string[] tabNames = { "全部", "最近", "收到", "收藏" };
+            for (int i = 0; i < tabNames.Length; i++)
+            {
+                var tab = (LibraryTab)i;
+                Pill(new Rectangle(margin + S(i * 70), top, S(62), S(34)), panel, tabNames[i], () => { libraryTab = tab; RebuildCards(); return true; }, () => libraryTab == tab);
+            }
             bool detail = width >= S(680);
             int previewWidth = detail ? S(210) : 0;
             int gridWidth = width - margin * 2 - (detail ? previewWidth + gap : 0);
-            int searchX = margin + S(180), searchWidth = gridWidth - S(180);
+            int searchX = margin + S(292), searchWidth = gridWidth - S(292);
             if (searchWidth > S(90))
             {
                 var field = new GUIFrame(new RectTransform(new Point(searchWidth, S(34)), panel.RectTransform) { AbsoluteOffset = new Point(searchX, top) }, style: null);
@@ -97,8 +100,15 @@ namespace EmoteChat
                 placeholder.Visible = search.Length == 0;
                 input.OnTextChanged += (_, text) => { search = text.Length > 80 ? text.Substring(0, 80) : text; placeholder.Visible = text.Length == 0; RebuildCards(); return true; };
             }
-            pickerList = new GUIListBox(new RectTransform(new Point(gridWidth, height - top - S(48) - footer), panel.RectTransform) { AbsoluteOffset = new Point(margin, top + S(48)) }, style: null) { AutoHideScrollBar = false, ScrollBarVisible = false, ResizeContentToMakeSpaceForScrollBar = false };
-            new GUICustomComponent(new RectTransform(new Point(4, pickerList.Rect.Height), panel.RectTransform) { AbsoluteOffset = new Point(margin + gridWidth - 4, top + S(48)) }, (sb, c) =>
+            int listTop = top + S(detail ? 48 : 92);
+            if (!detail)
+            {
+                int actionWidth = (gridWidth - gap) / 2;
+                saveButton = Pill(new Rectangle(margin, top + S(46), actionWidth, S(34)), panel, "加入图库", () => StoreSelection(false));
+                favoriteButton = Pill(new Rectangle(margin + actionWidth + gap, top + S(46), actionWidth, S(34)), panel, "收藏 / 取消收藏", () => StoreSelection(true), () => previewHash != null && favorites.Contains(previewHash));
+            }
+            pickerList = new GUIListBox(new RectTransform(new Point(gridWidth, Math.Max(S(40), height - listTop - footer)), panel.RectTransform) { AbsoluteOffset = new Point(margin, listTop) }, style: null) { AutoHideScrollBar = false, ScrollBarVisible = false, ResizeContentToMakeSpaceForScrollBar = false };
+            new GUICustomComponent(new RectTransform(new Point(4, pickerList.Rect.Height), panel.RectTransform) { AbsoluteOffset = new Point(margin + gridWidth - 4, listTop) }, (sb, c) =>
             {
                 if (pickerList != null && pickerList.BarSize < 1)
                 {
@@ -113,15 +123,17 @@ namespace EmoteChat
                 new GUICustomComponent(new RectTransform(Vector2.One, detailPanel.RectTransform), (sb, c) => uiPaint?.Round(sb, c.Rect, new Color(29, 33, 41), S(16))) { CanBeFocused = false };
                 Label(new Rectangle(S(18), S(14), previewWidth - S(36), S(24)), detailPanel, "预览", PickerPaint.Muted);
                 new GUICustomComponent(new RectTransform(new Point(previewWidth - S(36)), detailPanel.RectTransform) { AbsoluteOffset = new Point(S(18), S(58)) }, (sb, c) =>
-                { if (previewHash != null) { QueueLoad(previewHash); DrawAsset(sb, c.Rect, previewHash); } else DrawPending(sb, c.Rect); }) { CanBeFocused = false };
+                { if (previewHash != null) { QueuePreview(previewHash); DrawAsset(sb, c.Rect, previewHash); } else DrawPending(sb, c.Rect); }) { CanBeFocused = false };
                 previewLabel = Label(new Rectangle(S(18), previewWidth + S(44), previewWidth - S(36), S(30)), detailPanel, previewHash == null ? "选择一张表情" : LocalLabel(previewHash), PickerPaint.Ink);
+                saveButton = Pill(new Rectangle(S(18), detailPanel.Rect.Height - S(96), previewWidth - S(36), S(34)), detailPanel, "加入图库", () => StoreSelection(false));
+                favoriteButton = Pill(new Rectangle(S(18), detailPanel.Rect.Height - S(52), previewWidth - S(36), S(34)), detailPanel, "收藏 / 取消收藏", () => StoreSelection(true), () => previewHash != null && favorites.Contains(previewHash));
             }
             int bottom = height - S(54);
             status = Label(new Rectangle(margin, bottom - S(6), Math.Max(40, width - S(width >= S(680) ? 380 : 250)), S(28)), panel, "选择一张表情", PickerPaint.Muted);
             if (width >= S(680)) Pill(new Rectangle(width - S(338), bottom, S(104), S(32)), panel, "动画开关", () => { animate = !animate; return true; }, () => animate);
-            Pill(new Rectangle(width - S(222), bottom, S(88), S(32)), panel, "刷新", () => { ReadLibrary(); RebuildCards(); return true; });
+            Pill(new Rectangle(width - S(222), bottom, S(88), S(32)), panel, "刷新", () => { ReadLibrary(); ReadFavoriteList(); RebuildCards(); return true; });
             sendButton = Pill(new Rectangle(width - S(122), bottom, S(98), S(32)), panel, "发送", () => { if (previewHash != null) { Select(previewHash); } return true; }, primary: true);
-            sendButton.Enabled = previewHash != null;
+            sendButton.Enabled = previewHash != null && localFiles.ContainsKey(previewHash);
             GUIMessageBox.MessageBoxes.Add(picker);
             RebuildCards();
         }
@@ -129,7 +141,10 @@ namespace EmoteChat
         {
             if (pickerList == null) return;
             pickerList.Content.ClearChildren();
-            var keys = (recentOnly ? recent.Where(localFiles.ContainsKey) : localFiles.Keys.AsEnumerable()).Where(h => search.Length == 0 || LocalLabel(h).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
+            IEnumerable<string> source = libraryTab == LibraryTab.Recent ? recent.Where(localFiles.ContainsKey)
+                : libraryTab == LibraryTab.Received ? receivedEmotes
+                : libraryTab == LibraryTab.Favorites ? favorites.Where(localFiles.ContainsKey) : localFiles.Keys.AsEnumerable();
+            var keys = source.Where(h => search.Length == 0 || LocalLabel(h).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
             int gap = Math.Max(4, PickerPixels(10));
             int available = Math.Max(1, pickerList.Content.Rect.Width - gap);
             int columns = Math.Max(2, available / Math.Max(1, PickerPixels(116)));
@@ -147,11 +162,12 @@ namespace EmoteChat
                     Rectangle inner = c.Rect; inner.Inflate(-PickerPixels(chosen ? 3 : 1), -PickerPixels(chosen ? 3 : 1));
                     uiPaint?.Round(sb, inner, PickerPaint.Card, PickerPixels(12));
                     inner.Inflate(-PickerPixels(12), -PickerPixels(12));
-                    QueueLoad(hash); DrawAsset(sb, inner, hash);
+                    QueuePreview(hash); DrawAsset(sb, inner, hash);
                 }) { CanBeFocused = false };
-                button.OnClicked = (_, __) => { previewHash = hash; if (previewLabel != null) previewLabel.Text = LocalLabel(hash); if (sendButton != null) sendButton.Enabled = true; return true; };
+                if (favorites.Contains(hash)) Label(new Rectangle(PickerPixels(8), PickerPixels(4), PickerPixels(24), PickerPixels(24)), button, "★", Color.Gold);
+                button.OnClicked = (_, __) => { previewHash = hash; if (previewLabel != null) previewLabel.Text = LocalLabel(hash); if (sendButton != null) sendButton.Enabled = localFiles.ContainsKey(hash); return true; };
             }
-            if (keys.Length == 0) Label(new Rectangle(gap, gap, available - gap, PickerPixels(64)), pickerList.Content, recentOnly ? "还没有最近发送的表情" : search.Length > 0 ? "没有找到匹配的表情" : "先用导入器添加表情，再点「刷新」", PickerPaint.Muted);
+            if (keys.Length == 0) Label(new Rectangle(gap, gap, available - gap, PickerPixels(64)), pickerList.Content, libraryTab == LibraryTab.Recent ? "还没有最近发送的表情" : libraryTab == LibraryTab.Received ? "收到表情后，会显示在这里" : libraryTab == LibraryTab.Favorites ? "选择喜欢的表情，点击「收藏」" : search.Length > 0 ? "没有找到匹配的表情" : "先用导入器添加表情，再点「刷新」", PickerPaint.Muted);
             pickerList.RecalculateChildren(); pickerList.UpdateScrollBarSize();
         }
     }

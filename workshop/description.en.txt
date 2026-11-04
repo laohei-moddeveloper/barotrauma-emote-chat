@@ -37,3 +37,7 @@ Recommended for crewmates who enjoy Touhou-themed characters, outfits, jobs and 
 [b]0.2.0 update[/b]: upgrade server and clients together. Re-import original short GIFs if the old importer flattened them. First-time data goes only to eligible recipients; later sends reuse caches. The server shares one compressed asset and schedules downloads under a 128 KiB/s aggregate budget.
 
 [b]0.2.0 UI update[/b]: custom-drawn picker and image-only chat/bubbles. Internal markers are consumed before native chat rendering and Lua chat events. Distance-corrupted image messages are discarded instead of showing codes.
+
+[b]0.3.0 nickname fix[/b]: image messages show the sender’s in-game name in chat history, collapsed notifications and lobby chat. The body and overhead bubble remain free of filenames and internal codes. Compatible with 0.2.0 servers; no additional server sync work.
+
+[b]0.3.0 library & favorites[/b]: F8 → Received → select an image → Add to Library. Favorite saves it locally first; unfavoriting keeps the image. Send directly from Favorites. Saved GIFs keep their animation and favorites survive restart. Only explicit clicks write locally in the background, without extra downloads; ask the sender to resend expired cached images.

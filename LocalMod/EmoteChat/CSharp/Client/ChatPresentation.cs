@@ -18,7 +18,7 @@ namespace EmoteChat
         private readonly List<ImageRow> imageRows = new List<ImageRow>();
         private sealed class ImageRow
         {
-            public GUIComponent Root;
+            public GUIComponent Root, Header;
             public GUICustomComponent Image;
             public Action Layout;
             public void Detach()
@@ -26,6 +26,7 @@ namespace EmoteChat
                 Root.RectTransform.SizeChanged -= Layout;
                 Image.OnDraw = null; Image.OnUpdate = null;
                 Image.RectTransform.Parent = null;
+                if (Header != null) Header.RectTransform.Parent = null;
             }
         }
         private void InstallPresentation()
@@ -54,8 +55,8 @@ namespace EmoteChat
             var plugin = Active;
             if (hash != null && plugin.enabled)
             {
-                plugin.PresentChat(__instance.ChatBox, hash);
-                if (GameMain.NetLobbyScreen != null) plugin.PresentLobby(GameMain.NetLobbyScreen, hash);
+                plugin.PresentChat(__instance.ChatBox, hash, SenderLabel(message));
+                if (GameMain.NetLobbyScreen != null) plugin.PresentLobby(GameMain.NetLobbyScreen, hash, SenderLabel(message));
                 plugin.AddBubble(message, hash);
             }
             return false;
@@ -63,13 +64,13 @@ namespace EmoteChat
         private static bool ChatPrefix(ChatBox __instance, ChatMessage message)
         {
             if (!Consume(message, out string hash)) return true;
-            if (hash != null && Active.enabled) { Active.PresentChat(__instance, hash); Active.AddBubble(message, hash); }
+            if (hash != null && Active.enabled) { Active.PresentChat(__instance, hash, SenderLabel(message)); Active.AddBubble(message, hash); }
             return false;
         }
         private static bool LobbyPrefix(NetLobbyScreen __instance, ChatMessage message)
         {
             if (!Consume(message, out string hash)) return true;
-            if (hash != null && Active.enabled) Active.PresentLobby(__instance, hash);
+            if (hash != null && Active.enabled) Active.PresentLobby(__instance, hash, SenderLabel(message));
             return false;
         }
         private static bool SpeechPrefix(string text) => Active == null || !Format.IsTransportText(text);
@@ -87,36 +88,51 @@ namespace EmoteChat
             bubbles[character.ID] = new Bubble { Hash = hash, Character = character,
                 Until = cache.Get(hash) == null ? 0 : Now + 6, PendingUntil = Now + 180 };
         }
-        private void PresentChat(ChatBox box, string hash)
+        private static string SenderLabel(ChatMessage message)
+        {
+            // Use the name selected by native server routing, not an account ID or asset name.
+            string name = message.SenderName;
+            if (string.IsNullOrWhiteSpace(name)) name = message.SenderClient?.Name ?? message.SenderCharacter?.Name;
+            return name == null ? "" : new string(name.Where(c => !char.IsControl(c)).Take(128).ToArray());
+        }
+        private static GUITextBlock SenderHeader(GUIComponent root, string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            return new GUITextBlock(new RectTransform(new Point(1, GUI.IntScale(22)), root.RectTransform),
+                RichString.Plain(name), textColor: Color.LightGray, font: GUIStyle.SmallFont,
+                textAlignment: Alignment.Left, style: null)
+            { CanBeFocused = false, AutoScaleHorizontal = true, AutoScaleVertical = true, ToolTip = name };
+        }
+        private void PresentChat(ChatBox box, string hash, string sender)
         {
             if (box == null) return;
-            RequestAsset(hash);
-            AddImageRow((GUIListBox)ChatList.GetValue(box), hash);
+            RememberReceived(hash, sender); RequestAsset(hash);
+            AddImageRow((GUIListBox)ChatList.GetValue(box), hash, sender);
             if (!box.ToggleOpen)
             {
                 var popups = (List<GUIComponent>)PopupList.GetValue(box);
                 while (popups.Count >= 8) { popups[0].RectTransform.Parent = null; popups.RemoveAt(0); }
                 var popup = new GUIFrame(new RectTransform(new Point(GUI.IntScale(104)), box.GUIFrame.RectTransform), style: null)
                 { UserData = 0f, CanBeFocused = false };
-                AttachImage(popup, hash, null, true);
+                AttachImage(popup, hash, null, true, SenderHeader(popup, sender));
                 popups.Add(popup);
             }
         }
-        private void PresentLobby(NetLobbyScreen screen, string hash)
+        private void PresentLobby(NetLobbyScreen screen, string hash, string sender)
         {
             var list = (GUIListBox)LobbyList.GetValue(screen);
             if (list == null) return;
-            RequestAsset(hash); AddImageRow(list, hash);
+            RememberReceived(hash, sender); RequestAsset(hash); AddImageRow(list, hash, sender);
         }
-        private void AddImageRow(GUIListBox list, string hash)
+        private void AddImageRow(GUIListBox list, string hash, string sender)
         {
             bool bottom = list.BarSize >= 1 || list.BarScroll >= 0.99f;
             while (list.Content.CountChildren >= 60) list.Content.Children.First().RectTransform.Parent = null;
             var row = new GUIFrame(new RectTransform(new Vector2(0.95f, 0), list.Content.RectTransform, Anchor.TopCenter), style: null);
-            AttachImage(row, hash, list, false);
+            AttachImage(row, hash, list, false, SenderHeader(row, sender));
             if (bottom) list.BarScroll = 1;
         }
-        private void AttachImage(GUIComponent root, string hash, GUIListBox list, bool popup)
+        private void AttachImage(GUIComponent root, string hash, GUIListBox list, bool popup, GUIComponent header = null)
         {
             var image = new GUICustomComponent(new RectTransform(new Point(88, 88), root.RectTransform),
                 (batch, component) => { if (Active == this && enabled) DrawImageCard(batch, component.Rect, hash); }) { CanBeFocused = false };
@@ -132,9 +148,17 @@ namespace EmoteChat
                     int side = EmoteLayout.ImageSide(GUI.Scale, popup ? GUI.IntScale(88) : Math.Max(1, root.Rect.Width - padding * 2));
                     image.RectTransform.MinSize = image.RectTransform.MaxSize = new Point(side, side);
                     image.RectTransform.Resize(new Point(side, side), false);
-                    image.RectTransform.AbsoluteOffset = new Point(padding, padding);
+                    int headerHeight = header == null ? 0 : Math.Max(1, GUI.IntScale(22));
+                    int gap = header == null ? 0 : Math.Max(1, GUI.IntScale(4));
+                    int width = popup ? Math.Max(side + padding * 2, header == null ? 0 : GUI.IntScale(200)) : root.Rect.Width;
+                    if (header != null)
+                    {
+                        header.RectTransform.AbsoluteOffset = new Point(padding, padding);
+                        header.RectTransform.Resize(new Point(Math.Max(1, width - padding * 2), headerHeight), false);
+                    }
+                    image.RectTransform.AbsoluteOffset = new Point(padding, padding + headerHeight + gap);
                     root.RectTransform.IsFixedSize = false;
-                    root.RectTransform.Resize(new Point(popup ? side + padding * 2 : root.Rect.Width, side + padding * 2), false);
+                    root.RectTransform.Resize(new Point(width, side + padding * 2 + headerHeight + gap), false);
                     if (popup) root.RectTransform.IsFixedSize = true;
                     previousWidth = root.Rect.Width; previousScale = GUI.Scale;
                     list?.RecalculateChildren(); list?.UpdateScrollBarSize();
@@ -146,12 +170,12 @@ namespace EmoteChat
             for (int i = imageRows.Count - 1; i >= 0; i--)
                 if (imageRows[i].Root.RectTransform.Parent == null) { imageRows[i].Detach(); imageRows.RemoveAt(i); }
             if (imageRows.Count >= 192) { imageRows[0].Detach(); imageRows.RemoveAt(0); }
-            imageRows.Add(new ImageRow { Root = root, Image = image, Layout = layout });
+            imageRows.Add(new ImageRow { Root = root, Header = header, Image = image, Layout = layout });
             layout();
         }
         private void DrawImageCard(SpriteBatch batch, Rectangle rect, string hash)
         {
-            // Transparent image-only content. No timestamp, filename, sender label or transport ID.
+            // Transparent image-only content. Sender is a separate header; body has no filename, timestamp or transport ID.
             DrawAsset(batch, rect, hash);
         }
         private static void BubblePostfix(Character __instance, SpriteBatch spriteBatch, Camera cam)

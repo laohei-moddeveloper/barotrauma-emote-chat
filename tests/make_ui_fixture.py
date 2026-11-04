@@ -5,7 +5,7 @@ out = Path('.test-fixtures')
 out.mkdir(exist_ok=True)
 font_paths = [Path('C:/Windows/Fonts/msyh.ttc'), Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')]
 font_path = next(p for p in font_paths if p.exists())
-labels = ['表情包  /  Emotes', '把想说的，变成一张图。', '全部', '最近', '搜索你的表情…', '预览', '开心一下', '选择一张表情发送', '动画开关', '刷新', '发送', '接收表情', '×']
+labels = ['表情包  /  Emotes', '把想说的，变成一张图。', '全部', '最近', '搜索你的表情…', '预览', '开心一下', '选择一张表情发送', '动画开关', '刷新', '发送', '接收表情', '×', '收到', '收藏', '加入图库', '收藏 / 取消收藏']
 atlas = Image.new('RGBA', (720, len(labels)*48))
 draw = ImageDraw.Draw(atlas)
 for i, text in enumerate(labels):

@@ -33,6 +33,6 @@ def build(output: Path, importer: Path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--importer", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=ROOT / "dist/EmoteChat-0.2.0-workshop-update.zip")
+    parser.add_argument("--output", type=Path, default=ROOT / "dist/EmoteChat-0.3.0-workshop-update.zip")
     args = parser.parse_args()
     build(args.output, args.importer)

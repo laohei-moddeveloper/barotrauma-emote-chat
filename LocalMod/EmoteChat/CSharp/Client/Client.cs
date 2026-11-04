@@ -52,7 +52,7 @@ namespace EmoteChat
             session?.Dispose(); session = null;
             requests.Clear(); bubbles.Clear(); selectedHash = null; selectedAsset = null;
             string key = GameMain.Client?.ClientPeer?.ServerConnection?.Endpoint?.ToString();
-            if (key != null && key != cacheServerKey) { cache.Clear(); cacheServerKey = key; }
+            if (key != null && key != cacheServerKey) { cache.Clear(); receivedEmotes.Clear(); receivedSenders.Clear(); cardsDirty = true; cacheServerKey = key; }
             if (connection == null) return;
             session = new Session(false, true, cache, data => network.Send(data), Now);
             session.CanSend = size => global.Available(size + 32, Now);
@@ -77,6 +77,7 @@ namespace EmoteChat
         }
         partial void Tick()
         {
+            TickLibrary();
             if (picker != null && !GUIMessageBox.MessageBoxes.Contains(picker)) ClosePicker();
             if (picker != null && (pickerWidth != GameMain.GraphicsWidth || pickerHeight != GameMain.GraphicsHeight || pickerScale != GUI.Scale)) { ClosePicker(); OpenPicker(); }
             if (picker != null && PlayerInput.KeyHit(Keys.Escape)) ClosePicker();
@@ -86,7 +87,7 @@ namespace EmoteChat
             if (status != null && Now >= nextStatus)
             {
                 nextStatus = Now + 0.25;
-                status.Text = !enabled ? "表情已关闭" : connection == null ? "请先加入服务器" : selectedHash != null
+                status.Text = libraryWork != null ? "正在保存到本地图库…" : Now < libraryNoticeUntil ? libraryNotice : !enabled ? "表情已关闭" : connection == null ? "请先加入服务器" : selectedHash != null
                     ? session?.Busy == true ? "正在同步表情 · " + session.Progress + "%" : "正在准备表情…"
                     : session?.Ready == true ? "选择一张表情发送" : "正在连接表情服务…";
             }
@@ -181,7 +182,7 @@ namespace EmoteChat
         {
             session?.Dispose(); ClosePicker();
             uiPaint?.Dispose(); uiPaint = null;
-            ClearPresentation();
+            CleanupLibrary(); ClearPresentation();
             if (command != null) DebugConsole.Commands.Remove(command);
             cache.Clear(); requests.Clear(); bubbles.Clear(); loads.Clear();
             selectedAsset = null; selectedHash = null;

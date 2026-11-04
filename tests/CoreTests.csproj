@@ -7,6 +7,8 @@
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/TransferLimits.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/LibraryLocation.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/AnimationPlayback.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Client/LocalLibraryStore.cs" />
+    <Compile Include="LibraryTests.cs" />
     <Compile Include="CoreTests.cs" />
     <Compile Include="DistributionTests.cs" />
   </ItemGroup>
