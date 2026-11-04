@@ -4,7 +4,9 @@
 - Native API, metadata suppression, names and layout: 99 checks passed locally.
 - No protocol, transfer budget, server code or asset decoding changes.
 - Core: 72 checks including local save/favorites/security persistence (Windows may skip 2 symlink checks if privilege unavailable).
-- Windows packaging/graphics validation runs in CI; real local multiplayer/Steam update pending.
+- Windows client/server compile, importer, protocol, native integration, GPU animation/UI and packaging: passed.
+- Validated source 0886617; CI 41791595290; GitHub release v0.3.0.
+- Real local multiplayer and 0.3.0 Steam update pending; verified 0.2.0 Workshop record preserved.
 
 0.2.0 validation (GitHub release published; Steam update pending)
 - Client and server compile against audited 1.13.5.0 refs: pass, zero warnings.
