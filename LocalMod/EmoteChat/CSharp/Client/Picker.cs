@@ -15,7 +15,8 @@ namespace EmoteChat
         private string previewHash, search = "";
         private bool recentOnly;
         private int pickerWidth, pickerHeight;
-        private float pickerScale;
+        private float pickerScale, uiScale;
+        private int PickerPixels(int value) => Math.Max(1, (int)(value * uiScale));
         private GUIListBox pickerList;
         private GUITextBlock previewLabel;
         private GUIButton sendButton;
@@ -34,7 +35,7 @@ namespace EmoteChat
         private GUITextBlock Label(Rectangle rect, GUIComponent parent, string text, Color color, bool small = true)
         {
             return new GUITextBlock(new RectTransform(rect.Size, parent.RectTransform) { AbsoluteOffset = rect.Location }, text,
-                font: small ? GUIStyle.SmallFont : GUIStyle.Font, textColor: color, style: null) { CanBeFocused = false, AutoScaleHorizontal = true };
+                font: small ? GUIStyle.SmallFont : GUIStyle.Font, textColor: color, style: null) { CanBeFocused = false, AutoScaleHorizontal = true, AutoScaleVertical = true };
         }
         private GUIButton Pill(Rectangle rect, GUIComponent parent, string label, Func<bool> action, Func<bool> selected = null, bool primary = false)
         {
@@ -43,9 +44,9 @@ namespace EmoteChat
             {
                 bool hover = button.State == GUIComponent.ComponentState.Hover || button.State == GUIComponent.ComponentState.Pressed;
                 Color color = primary ? PickerPaint.Accent : selected?.Invoke() == true ? new Color(53, 66, 98) : hover ? new Color(57, 63, 77) : PickerPaint.Card;
-                uiPaint?.Round(sb, c.Rect, button.Enabled ? color : color * 0.35f, GUI.IntScale(10));
+                uiPaint?.Round(sb, c.Rect, button.Enabled ? color : color * 0.35f, PickerPixels(10));
             }) { CanBeFocused = false };
-            new GUITextBlock(new RectTransform(Vector2.One, button.RectTransform), label, textColor: PickerPaint.Ink, font: GUIStyle.SmallFont, textAlignment: Alignment.Center, style: null) { CanBeFocused = false };
+            new GUITextBlock(new RectTransform(Vector2.One, button.RectTransform), label, textColor: PickerPaint.Ink, font: GUIStyle.SmallFont, textAlignment: Alignment.Center, style: null) { CanBeFocused = false, AutoScaleHorizontal = true, AutoScaleVertical = true };
             button.OnClicked = (_, __) => action();
             return button;
         }
@@ -55,7 +56,8 @@ namespace EmoteChat
             ReadLibrary();
             if (previewHash != null && !localFiles.ContainsKey(previewHash)) previewHash = null;
             pickerWidth = GameMain.GraphicsWidth; pickerHeight = GameMain.GraphicsHeight; pickerScale = GUI.Scale;
-            int S(int n) => Math.Max(1, GUI.IntScale(n));
+            uiScale = Math.Max(0.6f, Math.Min(GUI.Scale, Math.Min(pickerWidth / 1000f, pickerHeight / 700f)));
+            int S(int n) => PickerPixels(n);
             int width = Math.Min(S(920), pickerWidth - S(40)), height = Math.Min(S(620), pickerHeight - S(40));
             width = Math.Max(300, width); height = Math.Max(300, height);
             picker = new GUIFrame(new RectTransform(Vector2.One, GUI.Canvas), style: null, color: Color.Transparent);
@@ -89,6 +91,7 @@ namespace EmoteChat
                 var field = new GUIFrame(new RectTransform(new Point(searchWidth, S(34)), panel.RectTransform) { AbsoluteOffset = new Point(searchX, top) }, style: null);
                 new GUICustomComponent(new RectTransform(Vector2.One, field.RectTransform), (sb, c) => uiPaint?.Round(sb, c.Rect, PickerPaint.Card, S(10))) { CanBeFocused = false };
                 var input = new GUITextBox(new RectTransform(new Vector2(0.9f, 1), field.RectTransform, Anchor.Center), search, textColor: PickerPaint.Ink, font: GUIStyle.SmallFont, style: null, createPenIcon: false) { ToolTip = "搜索本地表情名称" };
+                input.TextBlock.AutoScaleHorizontal = true; input.TextBlock.AutoScaleVertical = true;
                 pickerSearch = input;
                 var placeholder = Label(new Rectangle(S(8), 0, searchWidth - S(16), S(34)), field, "搜索你的表情…", PickerPaint.Muted);
                 placeholder.Visible = search.Length == 0;
@@ -127,9 +130,9 @@ namespace EmoteChat
             if (pickerList == null) return;
             pickerList.Content.ClearChildren();
             var keys = (recentOnly ? recent.Where(localFiles.ContainsKey) : localFiles.Keys.AsEnumerable()).Where(h => search.Length == 0 || LocalLabel(h).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0).ToArray();
-            int gap = Math.Max(4, GUI.IntScale(10));
+            int gap = Math.Max(4, PickerPixels(10));
             int available = Math.Max(1, pickerList.Content.Rect.Width - gap);
-            int columns = Math.Max(2, available / Math.Max(1, GUI.IntScale(116)));
+            int columns = Math.Max(2, available / Math.Max(1, PickerPixels(116)));
             int side = Math.Max(32, (available - (columns - 1) * gap) / columns);
             GUIFrame row = null;
             for (int i = 0; i < keys.Length; i++)
@@ -140,15 +143,15 @@ namespace EmoteChat
                 new GUICustomComponent(new RectTransform(Vector2.One, button.RectTransform), (sb, c) =>
                 {
                     bool chosen = previewHash == hash;
-                    uiPaint?.Round(sb, c.Rect, chosen ? PickerPaint.Accent : button.State == GUIComponent.ComponentState.Hover ? new Color(58, 64, 78) : PickerPaint.Card, GUI.IntScale(14));
-                    Rectangle inner = c.Rect; inner.Inflate(-GUI.IntScale(chosen ? 3 : 1), -GUI.IntScale(chosen ? 3 : 1));
-                    uiPaint?.Round(sb, inner, PickerPaint.Card, GUI.IntScale(12));
-                    inner.Inflate(-GUI.IntScale(12), -GUI.IntScale(12));
+                    uiPaint?.Round(sb, c.Rect, chosen ? PickerPaint.Accent : button.State == GUIComponent.ComponentState.Hover ? new Color(58, 64, 78) : PickerPaint.Card, PickerPixels(14));
+                    Rectangle inner = c.Rect; inner.Inflate(-PickerPixels(chosen ? 3 : 1), -PickerPixels(chosen ? 3 : 1));
+                    uiPaint?.Round(sb, inner, PickerPaint.Card, PickerPixels(12));
+                    inner.Inflate(-PickerPixels(12), -PickerPixels(12));
                     QueueLoad(hash); DrawAsset(sb, inner, hash);
                 }) { CanBeFocused = false };
                 button.OnClicked = (_, __) => { previewHash = hash; if (previewLabel != null) previewLabel.Text = LocalLabel(hash); if (sendButton != null) sendButton.Enabled = true; return true; };
             }
-            if (keys.Length == 0) Label(new Rectangle(gap, gap, available - gap, GUI.IntScale(64)), pickerList.Content, recentOnly ? "还没有最近发送的表情" : search.Length > 0 ? "没有找到匹配的表情" : "先用导入器添加表情，再点「刷新」", PickerPaint.Muted);
+            if (keys.Length == 0) Label(new Rectangle(gap, gap, available - gap, PickerPixels(64)), pickerList.Content, recentOnly ? "还没有最近发送的表情" : search.Length > 0 ? "没有找到匹配的表情" : "先用导入器添加表情，再点「刷新」", PickerPaint.Muted);
             pickerList.RecalculateChildren(); pickerList.UpdateScrollBarSize();
         }
     }
