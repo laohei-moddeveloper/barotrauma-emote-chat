@@ -7,7 +7,7 @@ Bring your own emotes aboard—with images and GIFs in chat and above your chara
 [h2]Features[/h2]
 [list]
 [*]Import your own PNG, JPG and GIF files. Send still images or animated reactions.
-[*]Press F8 for a thumbnail picker, then click to send. Local names and transfer progress are supported.
+[*]Press F8 for a custom rounded picker with search, recent sends, preview and transfer progress.
 [*]Emotes appear in chat history. Normal/radio messages also show a bubble above the speaker for about six seconds; private and dead chat do not create overhead bubbles.
 [*]Missing assets sync automatically to eligible recipients. Cached sends reuse the asset, so everyone does not need the same image library beforehand.
 [*]Uses your current chat channel and native distance, radio, private and dead-chat rules. Emote reception and animation can be switched off.
@@ -15,8 +15,8 @@ Bring your own emotes aboard—with images and GIFs in chat and above your chara
 
 [h2]How to use[/h2]
 1. Requires Barotrauma 1.13.5.0, LuaCs and C# support on the host/dedicated server and clients.
-2. Use the new 0.1.1 EmoteImporter.exe to select images, or drag PNG/JPG/GIF files onto it. The EXE can run from any drive; all copies use %LOCALAPPDATA%/Barotrauma/EmoteChat/Library. Source users can run the Python importer.
-3. Join the server, press F8, and click an emote. Reopen the picker after importing new files.
+2. Use the new 0.2.0 EmoteImporter.exe to select images, or drag PNG/JPG/GIF files onto it. The EXE can run from any drive; all copies use %LOCALAPPDATA%/Barotrauma/EmoteChat/Library. Source users can run the Python importer.
+3. Join the server, press F8, select an emote to preview, then press Send. Use Refresh after importing new files.
 4. The first transfer shows progress; later sends reuse the cache. The bubble timer starts when the asset is ready.
 
 [h2]Safety and performance[/h2]
@@ -34,4 +34,6 @@ Recommended for crewmates who enjoy Touhou-themed characters, outfits, jobs and 
 
 [url=https://github.com/laohei-moddeveloper/barotrauma-emote-chat]Source, installation and validation notes[/url]
 
-[b]0.1.1 update[/b]: upgrade server and clients together. Re-import original short GIFs if the old importer flattened them. First-time data goes only to eligible recipients; later sends reuse caches. The server shares one compressed asset and schedules downloads under a 128 KiB/s aggregate budget.
+[b]0.2.0 update[/b]: upgrade server and clients together. Re-import original short GIFs if the old importer flattened them. First-time data goes only to eligible recipients; later sends reuse caches. The server shares one compressed asset and schedules downloads under a 128 KiB/s aggregate budget.
+
+[b]0.2.0 UI update[/b]: custom-drawn picker and image-only chat/bubbles. Internal markers are consumed before native chat rendering and Lua chat events. Distance-corrupted image messages are discarded instead of showing codes.

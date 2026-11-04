@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><EnableDefaultCompileItems>false</EnableDefaultCompileItems><OutputPath>bin/Graphics/</OutputPath><IntermediateOutputPath>obj/Graphics/</IntermediateOutputPath></PropertyGroup>
   <ItemGroup>
     <Compile Include="GraphicsTests.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Client/PickerPaint.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/Format.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/AnimationPlayback.cs" />
     <Reference Include="MonoGame.Framework.Windows.NetStandard"><HintPath>$(RuntimeDir)/MonoGame.Framework.Windows.NetStandard.dll</HintPath></Reference>

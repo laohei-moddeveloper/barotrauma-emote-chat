@@ -28,6 +28,15 @@ namespace EmoteChat
             string hash = text.Substring(4, 64);
             return IsHash(hash) ? hash : null;
         }
+        // Other chat hooks may decorate a message. Only a complete, validated token
+        // can identify an asset; damaged tokens are hidden but never resolved.
+        public static string FindMarker(string text)
+        {
+            if (text == null) return null;
+            int start = text.IndexOf("[ec:", StringComparison.Ordinal);
+            return start >= 0 && text.Length - start >= 69 ? ParseMarker(text.Substring(start, 69)) : null;
+        }
+        public static bool IsTransportText(string text) => text != null && text.IndexOf("[ec:", StringComparison.Ordinal) >= 0;
         public static Asset Decode(byte[] encoded, string expectedHash, bool pixels)
         {
             if (encoded == null || encoded.Length < 16 || encoded.Length > MaxFile || !IsHash(expectedHash) || Hash(encoded) != expectedHash)

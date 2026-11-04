@@ -24,6 +24,7 @@ jobs:
           python -m unittest discover -s tests -p "test_*.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/make_fixtures.py
+          python tests/make_ui_fixture.py
       - name: Core and cross-language tests
         run: dotnet run --project tests/CoreTests.csproj -- .test-fixtures/still.ecp .test-fixtures/motion.ecp .test-fixtures/short.ecp
       - name: Download audited reference assemblies
@@ -57,7 +58,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package.py --importer build/importer/EmoteImporter.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Expand-Archive dist/EmoteChat-0.1.1.zip .test-fixtures/installed
+          Expand-Archive dist/EmoteChat-0.2.0.zip .test-fixtures/installed
           .test-fixtures/installed/LocalMods/EmoteChat/Tools/EmoteImporter.exe .test-fixtures/motion.gif
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $library=dotnet run --no-build --project tests/CoreTests.csproj -- --library-location
@@ -81,5 +82,7 @@ jobs:
           }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: EmoteChat-0.1.1
-          path: dist/*.zip
+          name: EmoteChat-0.2.0
+          path: |
+            dist/*.zip
+            dist/*ui-preview.png

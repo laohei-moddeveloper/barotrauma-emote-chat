@@ -25,9 +25,11 @@ namespace EmoteChat
         private static void RenderPrefix()
         {
             var plugin = Active;
-            if (plugin == null || !plugin.enabled || plugin.renderQueue.Count == 0) return;
+            if (plugin == null) return;
             var device = GameMain.GraphicsDeviceManager?.GraphicsDevice;
             if (device == null) return;
+            if (plugin.picker != null && plugin.uiPaint == null) plugin.uiPaint = new PickerPaint(device);
+            if (!plugin.enabled || plugin.renderQueue.Count == 0) return;
             double now = Now;
             int uploaded = 0, count = plugin.renderQueue.Count;
             // Round robin across visible assets; never let the first two animations starve the rest.

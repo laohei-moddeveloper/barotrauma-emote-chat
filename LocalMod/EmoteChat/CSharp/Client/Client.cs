@@ -29,7 +29,7 @@ namespace EmoteChat
         private string loadingHash, selectedHash, library, legacyLibrary, cacheServerKey;
         private readonly Dictionary<string, string> localFiles = new Dictionary<string, string>();
         private bool enabled = true, animate = true;
-        private GUIMessageBox picker;
+        private GUIFrame picker;
         private GUITextBlock status;
         private DebugConsole.Command command;
         private double nextSend, nextSweep, nextStatus;
@@ -70,13 +70,16 @@ namespace EmoteChat
                 selectedAsset = null;
                 selectedHash = null;
                 GameMain.Client.SendChatMessage(Format.Marker(hash));
-                picker?.Close(); picker = null; status = null;
+                recent.Remove(hash); recent.Insert(0, hash); if (recent.Count > 24) recent.RemoveAt(24);
+                ClosePicker();
             };
             session.Error = reason => { selectedHash = null; selectedAsset = null; Log(reason); };
         }
         partial void Tick()
         {
-            if (picker?.Closed == true) { picker = null; status = null; }
+            if (picker != null && !GUIMessageBox.MessageBoxes.Contains(picker)) ClosePicker();
+            if (picker != null && (pickerWidth != GameMain.GraphicsWidth || pickerHeight != GameMain.GraphicsHeight || pickerScale != GUI.Scale)) { ClosePicker(); OpenPicker(); }
+            if (picker != null && PlayerInput.KeyHit(Keys.Escape)) ClosePicker();
             object current = GameMain.Client?.ClientPeer?.ServerConnection;
             if (!ReferenceEquals(current, connection)) { connection = current; NewSession(); }
             if (PlayerInput.KeyHit(Keys.F8)) OpenPicker();
@@ -137,27 +140,9 @@ namespace EmoteChat
             selectedAsset = asset;
             Log("Preparing emote. First transfer is rate-limited; cached sends complete quickly.");
         }
-        private void OpenPicker()
+        private void ReadLibrary()
         {
-            if (picker != null) { picker.Close(); picker = null; status = null; return; }
-            picker = new GUIMessageBox("表情 · 0.1.1", "点击发送 · 使用当前聊天频道 · F8 打开或关闭", new LocalizedString[] { "关闭" }, relativeSize: new Vector2(0.55f, 0.8f));
-            var panel = picker;
-            panel.Buttons[0].OnClicked = (button, userdata) => { panel.Close(); if (picker == panel) { picker = null; status = null; } return true; };
-            status = new GUITextBlock(new RectTransform(new Vector2(1f, 0.05f), panel.Content.RectTransform), "选择一张表情发送", font: GUIStyle.SmallFont, textAlignment: Alignment.Center);
-            var settings = new GUILayoutGroup(new RectTransform(new Vector2(1f, 0.07f), panel.Content.RectTransform), isHorizontal: true) { RelativeSpacing = 0.02f };
-            var toggle = new GUIButton(new RectTransform(new Vector2(0.49f, 1f), settings.RectTransform), enabled ? "表情：开" : "表情：关");
-            toggle.OnClicked = (button, userdata) =>
-            {
-                enabled = !enabled; selectedHash = null; loads.Clear();
-                session?.Dispose(); session = null; cache.Clear(); requests.Clear(); bubbles.Clear();
-                if (enabled) NewSession();
-                button.Text = enabled ? "表情：开" : "表情：关"; return true;
-            };
-            var motion = new GUIButton(new RectTransform(new Vector2(0.49f, 1f), settings.RectTransform), animate ? "动画：开" : "动画：关");
-            motion.OnClicked = (button, userdata) => { animate = !animate; button.Text = animate ? "动画：开" : "动画：关"; return true; };
-            var list = new GUIListBox(new RectTransform(new Vector2(1f, 0.62f), panel.Content.RectTransform));
-            new GUITextBlock(new RectTransform(new Vector2(1f, 0.08f), panel.Content.RectTransform), "导入器可放在任意磁盘。导入完成后重新打开面板。", font: GUIStyle.SmallFont, wrap: true) { ToolTip = library };
-            var names = new Dictionary<string, string>();
+            localNames.Clear();
             localFiles.Clear();
             // New imports use the fixed per-user folder; old installed libraries remain readable.
             foreach (string folder in new[] { library, legacyLibrary }.Distinct())
@@ -169,7 +154,7 @@ namespace EmoteChat
                     if (File.Exists(namesPath))
                     {
                         var found = JsonSerializer.Deserialize<Dictionary<string, string>>(ReadLocal(namesPath, 32768));
-                        if (found != null) foreach (var pair in found) if (!names.ContainsKey(pair.Key)) names[pair.Key] = pair.Value;
+                        if (found != null) foreach (var pair in found) if (!localNames.ContainsKey(pair.Key)) localNames[pair.Key] = pair.Value;
                     }
                     foreach (string path in Directory.EnumerateFiles(folder, "*.ecp").Take(128))
                     {
@@ -179,23 +164,6 @@ namespace EmoteChat
                 }
                 catch (Exception e) when (e is IOException || e is InvalidDataException || e is JsonException || e is UnauthorizedAccessException) { Log("Cannot read an import folder"); }
             }
-            int index = 0;
-            GUILayoutGroup row = null;
-            string[] paths = localFiles.Values.ToArray();
-            foreach (string path in paths)
-            {
-                string hash = Path.GetFileNameWithoutExtension(path);
-                if (!Format.IsHash(hash)) continue;
-                if (index % 3 == 0)
-                    row = new GUILayoutGroup(new RectTransform(new Vector2(1, 0), list.Content.RectTransform) { MinSize = new Point(0, 120), MaxSize = new Point(int.MaxValue, 120) }, isHorizontal: true) { RelativeSpacing = 0.02f };
-                string label = names.TryGetValue(hash, out var name) && name != null ? new string(name.Where(c => !char.IsControl(c) && c != '‖' && c != '<' && c != '>').Take(16).ToArray()) : "表情 " + (index + 1);
-                var button = new GUIButton(new RectTransform(new Vector2(0.32f, 1), row.RectTransform), label, textAlignment: Alignment.BottomCenter) { ToolTip = "点击发送" };
-                new GUICustomComponent(new RectTransform(new Point(80, 80), button.RectTransform, Anchor.TopCenter) { AbsoluteOffset = new Point(0, 6) }, (sb, component) =>
-                { QueueLoad(hash); DrawAsset(sb, component.Rect, hash); });
-                button.OnClicked = (sender, userdata) => { Select(hash); return true; };
-                index++;
-            }
-            if (index == 0) Log("No imported emotes. Import folder: " + library);
         }
         private static byte[] ReadLocal(string path, int maximum)
         {
@@ -211,7 +179,8 @@ namespace EmoteChat
         }
         partial void Cleanup()
         {
-            session?.Dispose(); picker?.Close(); picker = null;
+            session?.Dispose(); ClosePicker();
+            uiPaint?.Dispose(); uiPaint = null;
             ClearPresentation();
             if (command != null) DebugConsole.Commands.Remove(command);
             cache.Clear(); requests.Clear(); bubbles.Clear(); loads.Clear();

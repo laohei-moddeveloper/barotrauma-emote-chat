@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Barotrauma;
 using Barotrauma.Networking;
+using HarmonyLib;
 
 namespace EmoteChat
 {
@@ -20,8 +21,23 @@ namespace EmoteChat
         private readonly List<Peer> schedule = new List<Peer>();
         private double nextSweep;
         private int roundRobin;
+        [ThreadStatic] private static string routingHash;
+        [ThreadStatic] private static Client routingSender;
+        private struct RoutingState { public string Hash; public Client Sender; }
+        private static void RoutePrefix(string message, Client senderClient, out RoutingState __state)
+        {
+            __state = new RoutingState { Hash = routingHash, Sender = routingSender };
+            routingHash = Format.FindMarker(message); routingSender = senderClient;
+        }
+        private static Exception RouteFinalizer(Exception __exception, RoutingState __state)
+        {
+            routingHash = __state.Hash; routingSender = __state.Sender;
+            return __exception;
+        }
         partial void Install()
         {
+            var route = AccessTools.Method(typeof(GameServer), "SendChatMessage", new[] { typeof(string), typeof(ChatMessageType?), typeof(Client), typeof(Character), typeof(PlayerConnectionChangeType), typeof(ChatMode) });
+            harmony.Patch(route, prefix: new HarmonyMethod(typeof(Plugin), nameof(RoutePrefix)), finalizer: new HarmonyMethod(typeof(Plugin), nameof(RouteFinalizer)));
             Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPrefix), true);
             Patch(typeof(GameServer), "SendDirectChatMessage", new[] { typeof(ChatMessage), typeof(Client) }, nameof(DirectChatPostfix), false);
         }
@@ -29,7 +45,11 @@ namespace EmoteChat
         {
             var plugin = Active;
             string hash = Format.ParseMarker(msg.Text);
-            if (plugin == null || hash == null) return true;
+            if (plugin == null) return true;
+            // Native distance/radio garbling must never turn an internal hash into visible text.
+            // Drop degraded image messages rather than bypassing native hearing restrictions.
+            if (routingHash != null && ReferenceEquals(msg.SenderClient, routingSender) && hash != routingHash) return false;
+            if (hash == null) return !Format.IsTransportText(msg.Text);
             // Native routing already chose this recipient. Never broadcast separately.
             if (msg.SenderClient == null || !plugin.peers.TryGetValue(msg.SenderClient, out var owner)
                 || !owner.Owned.ContainsKey(hash) || plugin.cache.Get(hash) == null) return false;

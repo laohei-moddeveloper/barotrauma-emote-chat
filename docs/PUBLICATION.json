@@ -1,6 +1,6 @@
 {
   "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
-  "release_status": "0.1.1-fixes-verified-release-workshop-update-pending",
+  "release_status": "0.2.0-validation-in-progress-workshop-update-pending",
   "workshop_app_id": 602960,
   "workshop_item_id": "3833045408",
   "workshop_create_new": false,
@@ -21,7 +21,7 @@
     "credentials and private migration materials"
   ],
   "cover_selection": "A",
-  "github_status": "0.1.1-dual-target-release-published",
+  "github_status": "0.2.0-validation-in-progress",
   "github_release_tag": "v0.1.1",
   "verified_source_revision": "b0f1eca582e8839bc54e2612aef4b9b4e8b938c5",
   "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41770117480",
@@ -42,8 +42,8 @@
     "cover_sha256_match": true,
     "download_all_files_match": true
   },
-  "pending_update_version": "0.1.1",
-  "pending_update_requires": "server and all clients, protocol v2",
+  "pending_update_version": "0.2.0",
+  "pending_update_requires": "server and all clients, protocol v2, new presentation hooks",
   "fix_validation": {
     "python_tests": 11,
     "core_checks": 55,

@@ -48,7 +48,7 @@ namespace EmoteChat
                 harmony = new Harmony(PatchId);
                 Patch(typeof(CoroutineManager), "Update", new[] { typeof(bool), typeof(float) }, nameof(UpdatePostfix), false);
                 Install();
-                Log("0.1.1 loaded. Protocol v2; bounded pixel assets only.");
+                Log("0.2.0 loaded. Protocol v2; bounded pixel assets only.");
             }
             catch (Exception error) { Log("Disabled: " + error.GetBaseException().Message); Dispose(); }
         }

@@ -142,9 +142,10 @@ static class Tests
             {
                 var chatMethod = asm.GetType("Barotrauma.ChatBox").GetMethods(flags).Single(m => m.Name == "AddMessage");
                 targets.Add((chatMethod, "ChatPrefix", true));
-                targets.Add((chatMethod, "ChatPostfix", false));
+
                 var lobbyMethod = asm.GetType("Barotrauma.NetLobbyScreen").GetMethods(flags).Single(m => m.Name == "NewChatMessage");
-                targets.Add((lobbyMethod, "LobbyPrefix", true)); targets.Add((lobbyMethod, "LobbyPostfix", false));
+                targets.Add((lobbyMethod, "LobbyPrefix", true));
+                targets.Add((asm.GetType("Barotrauma.Networking.GameClient").GetMethods(flags).Single(m => m.Name == "AddChatMessage" && m.GetParameters()[0].ParameterType.Name == "ChatMessage"), "ReceiveChatPrefix", true));
                 targets.Add((asm.GetType("Barotrauma.Character").GetMethods(flags).Single(m => m.Name == "ShowSpeechBubble"), "SpeechPrefix", true));
                 targets.Add((asm.GetType("Barotrauma.Character").GetMethods(flags).Single(m => m.Name == "DrawGUIMessages"), "BubblePostfix", false));
                 targets.Add((asm.GetType("Barotrauma.GameMain").GetMethods(flags).Single(m => m.Name == "Draw" && m.DeclaringType == asm.GetType("Barotrauma.GameMain")), "RenderPrefix", true));
@@ -188,27 +189,21 @@ static class Tests
                     object message = uninitialized(messageType);
                     string marker = Format.Marker(new string('a', 64));
                     var textField = messageType.GetField("Text", flags);
-                    foreach (var pair in new[] { ("Barotrauma.ChatBox", "ChatPrefix"), ("Barotrauma.NetLobbyScreen", "LobbyPrefix") })
+                    // Suppression stays active when images are disabled: metadata never becomes text.
+                    hooks.GetField("enabled", flags).SetValue(pluginInstance, false);
+                    foreach (string token in new[] { marker, "decorated " + marker, "[ec:broken-token]" })
+                    foreach (string prefix in new[] { "ChatPrefix", "LobbyPrefix", "ReceiveChatPrefix" })
                     {
-                        object box = uninitialized(asm.GetType(pair.Item1));
-                        box.GetType().GetField("chatBox", flags).SetValue(box, list);
-                        if (pair.Item2 == "ChatPrefix")
-                        {
-                            var popupsField = box.GetType().GetField("popupMessages", flags);
-                            popupsField.SetValue(box, Activator.CreateInstance(popupsField.FieldType));
-                        }
-                        textField.SetValue(message, marker);
-                        messageType.GetField("translatedText", flags).SetValue(message, marker);
-                        object[] inputs = { box, message, true, null };
-                        hooks.GetMethod(pair.Item2, flags).Invoke(null, inputs);
-                        Check((string)textField.GetValue(message) == "", pair.Item2 + " strips token before native text measurement");
-                        Check(messageType.GetField("translatedText", flags).GetValue(message) == null, "cached translated token cannot leak into native popup");
-                        hooks.GetMethod("ChatFinalizer", flags).Invoke(null, new object[] { null, message, inputs[3] });
-                        Check((string)textField.GetValue(message) == marker, "sanitization does not mutate shared network metadata");
+                        textField.SetValue(message, token);
+                        messageType.GetField("translatedText", flags).SetValue(message, token);
+                        bool run = (bool)hooks.GetMethod(prefix, flags).Invoke(null, new object[] { null, message });
+                        Check(!run && (string)textField.GetValue(message) == "", prefix + " consumes transport before native/Lua paths");
+                        Check(messageType.GetField("translatedText", flags).GetValue(message) == null, "translated token cannot survive interception");
                     }
-                    Check(!(bool)hooks.GetMethod("SpeechPrefix", flags).Invoke(null, new object[] { marker }), "native overhead text does not show transport ID");
+                    textField.SetValue(message, "normal chat");
+                    Check((bool)hooks.GetMethod("ReceiveChatPrefix", flags).Invoke(null, new object[] { null, message }), "ordinary receive pipeline unaffected");
+                    Check(!(bool)hooks.GetMethod("SpeechPrefix", flags).Invoke(null, new object[] { marker }), "native overhead suppresses transport");
                     Check((bool)hooks.GetMethod("SpeechPrefix", flags).Invoke(null, new object[] { "normal chat" }), "ordinary speech unaffected");
-
                     // Test-only font/scale inputs let real native RectTransform/GUILayoutGroup run without game assets.
                     var layoutHarmony = Activator.CreateInstance(harmonyType, "emotechat.isolated.layout.inputs");
                     void inputPatch(MethodInfo target, string prefix)
@@ -251,28 +246,23 @@ static class Tests
                             layoutScale = scale;
                             object row = frame(300, 23, canvasRect), rowRect = rectField.GetValue(row);
                             rectType.GetProperty("AbsoluteOffset").SetValue(rowRect, point(37, 41));
-                            object header = frame(300, 23, rowRect);
-                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { row, null, (object)new string('a', 64), null, false });
+
+                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { row, (object)new string('a', 64), null, false });
                             var rowChildren = (System.Collections.IEnumerable)childrenField.GetValue(rowRect);
                             object image = rowChildren.Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single(c => c.GetType().Name == "GUICustomComponent");
-                            Check(coord(image, "Y") == coord(header, "Bottom"), "native chat image starts below header at scale " + scale);
+                            Check(coord(image, "Y") == coord(row, "Y") + Math.Max(1, (int)(6 * scale)), "pure image row has only bounded padding at scale " + scale);
+                            Check(rowChildren.Cast<object>().Count() == 1, "image-only row has no timestamp/sender/text widgets");
                             Check(coord(image, "Bottom") <= coord(row, "Bottom"), "native chat row reserves actual image height");
                             rectType.GetMethod("Resize", new[] { pointType, typeof(bool) }).Invoke(rowRect, new[] { point(100, coord(row, "Height")), (object)false });
                             Check(coord(image, "Right") <= coord(row, "Right"), "native image stays inside narrow resized chat row");
 
                             object popup = frame(80, 50, canvasRect);
-                            var relativeCtor = rectType.GetConstructors().First(c => c.GetParameters()[0].ParameterType.Name == "Vector2");
-                            object relative = Activator.CreateInstance(relativeCtor.GetParameters()[0].ParameterType, 0.95f, 0.9f);
-                            object contentRect = construct(relativeCtor, relative, rectField.GetValue(popup));
-                            var groupCtor = asm.GetType("Barotrauma.GUILayoutGroup").GetConstructors().First(c => c.GetParameters()[0].ParameterType == rectType);
-                            object group = construct(groupCtor, contentRect);
-                            object popupHeader = frame(50, 23, contentRect);
-                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { group, null, (object)new string('b', 64), null, true });
-                            var popupChildren = (System.Collections.IEnumerable)childrenField.GetValue(contentRect);
-                            object popupImage = popupChildren.Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single(c => c.GetType().Name == "GUICustomComponent");
-                            Check(coord(popupImage, "Width") == (int)(88 * scale), "short caption cannot shrink popup image");
-                            Check(coord(popupImage, "Y") >= coord(popupHeader, "Bottom"), "native popup image does not overlap header");
-                            Check(coord(popupImage, "Bottom") <= coord(popup, "Bottom"), "native popup expands around image");
+                            hooks.GetMethod("AttachImage", flags).Invoke(pluginInstance, new[] { popup, (object)new string('b', 64), null, true });
+                            var popupChildren = (System.Collections.IEnumerable)childrenField.GetValue(rectField.GetValue(popup));
+                            object popupImage = popupChildren.Cast<object>().Select(r => rectType.GetProperty("GUIComponent").GetValue(r)).Single();
+                            Check(coord(popupImage, "Width") == (int)(88 * scale), "popup keeps intended image size");
+                            Check(coord(popupImage, "Y") >= coord(popup, "Y"), "popup image begins within popup");
+                            Check(coord(popupImage, "Bottom") <= coord(popup, "Bottom"), "popup reserves image height");
                         }
                         hooks.GetMethod("ClearPresentation", flags).Invoke(pluginInstance, null);
                     }
@@ -301,6 +291,9 @@ static class Tests
         }
         Check(Format.ParseMarker(Format.Marker(asset.Hash)) == asset.Hash, "strict marker roundtrip");
         Check(Format.ParseMarker("x" + Format.Marker(asset.Hash)) == null, "embedded markers rejected");
+        Check(Format.FindMarker("player: " + Format.Marker(asset.Hash)) == asset.Hash, "decorated markers intercepted without showing metadata");
+        Check(Format.FindMarker("[ec:bad]") == null && Format.IsTransportText("[ec:bad]"), "damaged transport hidden but not resolved");
+        Check(!Format.IsTransportText("hello world"), "normal text never mistaken for transport");
         Bad(() => Format.Decode(encoded, new string('0', 64), true), "hash mismatch");
         Bad(() => Decode(Image(129, 1, 1)), "dimension bound");
         Bad(() => Decode(Image(1, 1, 49)), "frame count bound");

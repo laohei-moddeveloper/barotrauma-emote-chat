@@ -16,14 +16,9 @@ namespace EmoteChat
         private static readonly FieldInfo LobbyList = AccessTools.Field(typeof(NetLobbyScreen), "chatBox");
         private static readonly FieldInfo MessageTranslation = AccessTools.Field(typeof(ChatMessage), "translatedText");
         private readonly List<ImageRow> imageRows = new List<ImageRow>();
-        private sealed class ChatState
-        {
-            public string Hash, Text, Translation;
-            public GUIComponent PreviousRow, PreviousPopup;
-        }
         private sealed class ImageRow
         {
-            public GUIComponent Root, Original;
+            public GUIComponent Root;
             public GUICustomComponent Image;
             public Action Layout;
             public void Detach()
@@ -31,103 +26,100 @@ namespace EmoteChat
                 Root.RectTransform.SizeChanged -= Layout;
                 Image.OnDraw = null; Image.OnUpdate = null;
                 Image.RectTransform.Parent = null;
-                if (Original != null) Original.RectTransform.Parent = Root.RectTransform;
             }
         }
         private void InstallPresentation()
         {
             if (PopupList == null || LobbyList == null || MessageTranslation == null) throw new NotSupportedException("Native chat containers changed");
+            // Consume before Lua chat events, native translation, labels and speech bubbles.
+            var hook = new HarmonyMethod(typeof(Plugin), nameof(ReceiveChatPrefix)) { priority = Priority.First };
+            harmony.Patch(AccessTools.Method(typeof(GameClient), "AddChatMessage", new[] { typeof(ChatMessage) }), prefix: hook);
             Patch(typeof(ChatBox), "AddMessage", new[] { typeof(ChatMessage) }, nameof(ChatPrefix), true);
-            Patch(typeof(ChatBox), "AddMessage", new[] { typeof(ChatMessage) }, nameof(ChatPostfix), false);
-            harmony.Patch(AccessTools.Method(typeof(ChatBox), "AddMessage", new[] { typeof(ChatMessage) }), finalizer: new HarmonyMethod(typeof(Plugin), nameof(ChatFinalizer)));
             Patch(typeof(NetLobbyScreen), "NewChatMessage", new[] { typeof(ChatMessage) }, nameof(LobbyPrefix), true);
-            Patch(typeof(NetLobbyScreen), "NewChatMessage", new[] { typeof(ChatMessage) }, nameof(LobbyPostfix), false);
-            harmony.Patch(AccessTools.Method(typeof(NetLobbyScreen), "NewChatMessage", new[] { typeof(ChatMessage) }), finalizer: new HarmonyMethod(typeof(Plugin), nameof(ChatFinalizer)));
             Patch(typeof(Character), "ShowSpeechBubble", new[] { typeof(Color), typeof(string) }, nameof(SpeechPrefix), true);
         }
-        private static IEnumerable<GUIComponent> Popups(ChatBox box) => (IEnumerable<GUIComponent>)PopupList.GetValue(box);
-        private static void ChatPrefix(ChatBox __instance, ChatMessage message, bool __runOriginal, out ChatState __state)
+        private static bool Consume(ChatMessage message, out string hash)
         {
-            __state = null;
-            string hash = Format.ParseMarker(message.Text);
-            if (Active == null || hash == null || !__runOriginal) return;
-            __state = new ChatState { Hash = hash, Text = message.Text, Translation = (string)MessageTranslation.GetValue(message),
-                PreviousRow = ((GUIListBox)ChatList.GetValue(__instance)).Content.Children.LastOrDefault(),
-                PreviousPopup = Popups(__instance).LastOrDefault() };
-            // Sanitize BEFORE the native row, wrapped label and collapsed popup measure text.
+            hash = null;
+            if (Active == null || !Format.IsTransportText(message?.Text)) return false;
+            hash = Format.FindMarker(message.Text);
+            // Never restore transport text: downstream hooks must not render metadata.
             message.Text = "";
             MessageTranslation.SetValue(message, null);
+            return true;
         }
-        private static Exception ChatFinalizer(Exception __exception, ChatMessage message, ChatState __state)
-        { RestoreText(message, __state); return __exception; }
-        private static void RestoreText(ChatMessage message, ChatState state)
-        { if (state != null) { message.Text = state.Text; MessageTranslation.SetValue(message, state.Translation); } }
-        private static bool SpeechPrefix(string text) => Active == null || Format.ParseMarker(text) == null;
+        private static bool ReceiveChatPrefix(GameClient __instance, ChatMessage message)
+        {
+            if (!Consume(message, out string hash)) return true;
+            var plugin = Active;
+            if (hash != null && plugin.enabled)
+            {
+                plugin.PresentChat(__instance.ChatBox, hash);
+                if (GameMain.NetLobbyScreen != null) plugin.PresentLobby(GameMain.NetLobbyScreen, hash);
+                plugin.AddBubble(message, hash);
+            }
+            return false;
+        }
+        private static bool ChatPrefix(ChatBox __instance, ChatMessage message)
+        {
+            if (!Consume(message, out string hash)) return true;
+            if (hash != null && Active.enabled) { Active.PresentChat(__instance, hash); Active.AddBubble(message, hash); }
+            return false;
+        }
+        private static bool LobbyPrefix(NetLobbyScreen __instance, ChatMessage message)
+        {
+            if (!Consume(message, out string hash)) return true;
+            if (hash != null && Active.enabled) Active.PresentLobby(__instance, hash);
+            return false;
+        }
+        private static bool SpeechPrefix(string text) => Active == null || !Format.IsTransportText(text);
         private void RequestAsset(string hash)
         {
             if (requests.Count < 32 && cache.Get(hash) == null && !requests.ContainsKey(hash))
                 requests[hash] = new RequestState { Until = Now + 55, Next = 0 };
         }
-        private static void ChatPostfix(ChatBox __instance, ChatMessage message, ChatState __state, bool __runOriginal)
+        private void AddBubble(ChatMessage message, string hash)
         {
-            if (__state == null) return;
-            RestoreText(message, __state);
-            var plugin = Active;
-            if (!__runOriginal || plugin == null || !plugin.enabled) return;
-            string hash = __state.Hash;
-            plugin.RequestAsset(hash);
-            var list = (GUIListBox)ChatList.GetValue(__instance);
-            var row = list.Content.Children.LastOrDefault();
-            if (row != null && !ReferenceEquals(row, __state.PreviousRow))
-                plugin.AttachImage(row, row.Children.OfType<GUITextBlock>().LastOrDefault(), hash, list, false);
-            var popup = Popups(__instance).LastOrDefault();
-            if (popup != null && !ReferenceEquals(popup, __state.PreviousPopup))
-            {
-                var content = popup.Children.OfType<GUILayoutGroup>().FirstOrDefault();
-                if (content != null) plugin.AttachImage(content, content.Children.OfType<GUITextBlock>().LastOrDefault(), hash, null, true);
-            }
             var character = message.SenderCharacter;
-            if (character != null && !character.IsDead && (message.Type == ChatMessageType.Default || message.Type == ChatMessageType.Radio))
+            if (character == null || character.IsDead || (message.Type != ChatMessageType.Default && message.Type != ChatMessageType.Radio)) return;
+            if (bubbles.Count >= 16 && !bubbles.ContainsKey(character.ID))
+                bubbles.Remove(bubbles.OrderBy(p => p.Value.PendingUntil).First().Key);
+            bubbles[character.ID] = new Bubble { Hash = hash, Character = character,
+                Until = cache.Get(hash) == null ? 0 : Now + 6, PendingUntil = Now + 180 };
+        }
+        private void PresentChat(ChatBox box, string hash)
+        {
+            if (box == null) return;
+            RequestAsset(hash);
+            AddImageRow((GUIListBox)ChatList.GetValue(box), hash);
+            if (!box.ToggleOpen)
             {
-                if (plugin.bubbles.Count >= 16 && !plugin.bubbles.ContainsKey(character.ID))
-                    plugin.bubbles.Remove(plugin.bubbles.OrderBy(p => p.Value.PendingUntil).First().Key);
-                plugin.bubbles[character.ID] = new Bubble { Hash = hash, Character = character,
-                    Until = plugin.cache.Get(hash) == null ? 0 : Now + 6, PendingUntil = Now + 180 };
+                var popups = (List<GUIComponent>)PopupList.GetValue(box);
+                while (popups.Count >= 8) { popups[0].RectTransform.Parent = null; popups.RemoveAt(0); }
+                var popup = new GUIFrame(new RectTransform(new Point(GUI.IntScale(104)), box.GUIFrame.RectTransform), style: null)
+                { UserData = 0f, CanBeFocused = false };
+                AttachImage(popup, hash, null, true);
+                popups.Add(popup);
             }
         }
-        private static void LobbyPrefix(NetLobbyScreen __instance, ChatMessage message, bool __runOriginal, out ChatState __state)
+        private void PresentLobby(NetLobbyScreen screen, string hash)
         {
-            __state = null;
-            string hash = Format.ParseMarker(message.Text);
-            if (Active == null || hash == null || !__runOriginal) return;
-            __state = new ChatState { Hash = hash, Text = message.Text, Translation = (string)MessageTranslation.GetValue(message),
-                PreviousRow = ((GUIListBox)LobbyList.GetValue(__instance)).Content.Children.LastOrDefault() };
-            message.Text = "";
-            MessageTranslation.SetValue(message, null);
+            var list = (GUIListBox)LobbyList.GetValue(screen);
+            if (list == null) return;
+            RequestAsset(hash); AddImageRow(list, hash);
         }
-        private static void LobbyPostfix(NetLobbyScreen __instance, ChatMessage message, ChatState __state, bool __runOriginal)
+        private void AddImageRow(GUIListBox list, string hash)
         {
-            if (__state == null) return;
-            RestoreText(message, __state);
-            var plugin = Active;
-            if (!__runOriginal || plugin == null || !plugin.enabled) return;
-            plugin.RequestAsset(__state.Hash);
-            var list = (GUIListBox)LobbyList.GetValue(__instance);
-            var header = list.Content.Children.LastOrDefault() as GUITextBlock;
-            if (header == null || ReferenceEquals(header, __state.PreviousRow)) return;
-            header.RectTransform.Parent = null;
-            var row = new GUIFrame(new RectTransform(new Vector2(1, 0), list.Content.RectTransform), style: null);
-            header.RectTransform.Parent = row.RectTransform;
-            header.RectTransform.AbsoluteOffset = Point.Zero;
-            header.RectTransform.RelativeOffset = Vector2.Zero;
-            header.RectTransform.ScreenSpaceOffset = Point.Zero;
-            plugin.AttachImage(row, null, __state.Hash, list, false);
+            bool bottom = list.BarSize >= 1 || list.BarScroll >= 0.99f;
+            while (list.Content.CountChildren >= 60) list.Content.Children.First().RectTransform.Parent = null;
+            var row = new GUIFrame(new RectTransform(new Vector2(0.95f, 0), list.Content.RectTransform, Anchor.TopCenter), style: null);
+            AttachImage(row, hash, list, false);
+            if (bottom) list.BarScroll = 1;
         }
-        private void AttachImage(GUIComponent root, GUITextBlock original, string hash, GUIListBox list, bool popup)
+        private void AttachImage(GUIComponent root, string hash, GUIListBox list, bool popup)
         {
-            if (original != null) root.RemoveChild(original);
             var image = new GUICustomComponent(new RectTransform(new Point(88, 88), root.RectTransform),
-                (batch, component) => { if (Active == this && enabled) DrawAsset(batch, component.Rect, hash); }) { CanBeFocused = false };
+                (batch, component) => { if (Active == this && enabled) DrawImageCard(batch, component.Rect, hash); }) { CanBeFocused = false };
             bool arranging = false;
             int previousWidth = -1; float previousScale = -1;
             Action layout = () =>
@@ -136,38 +128,14 @@ namespace EmoteChat
                 arranging = true;
                 try
                 {
-                    int padding = Math.Max(1, GUI.IntScale(10));
+                    int padding = Math.Max(1, GUI.IntScale(6));
                     int side = EmoteLayout.ImageSide(GUI.Scale, popup ? GUI.IntScale(88) : Math.Max(1, root.Rect.Width - padding * 2));
                     image.RectTransform.MinSize = image.RectTransform.MaxSize = new Point(side, side);
                     image.RectTransform.Resize(new Point(side, side), false);
-                    int headerHeight = root.Children.Where(c => !ReferenceEquals(c, image)).Sum(c => c.Rect.Height);
-                    if (popup)
-                    {
-                        var container = root.RectTransform.Parent.GUIComponent;
-                        Vector2 fraction = root.RectTransform.RelativeSize;
-                        int width = Math.Max(GUI.IntScale(110), root.Children.OfType<GUITextBlock>().Select(t => (int)t.TextSize.X + padding * 2).DefaultIfEmpty(0).Max());
-                        width = Math.Min(width, GUI.IntScale(320));
-                        int contentWidth = Math.Max(side, (int)(width * fraction.X));
-                        // Resizing the popup recursively would stretch the measured sender label and
-                        // then push the image below the popup. Resize content explicitly, preserving heights.
-                        container.RectTransform.IsFixedSize = false;
-                        foreach (var child in root.Children.Where(c => !ReferenceEquals(c, image)))
-                        {
-                            child.RectTransform.Resize(new Point(contentWidth, child.Rect.Height), false);
-                            (child as GUITextBlock)?.CalculateHeightFromText();
-                        }
-                        headerHeight = root.Children.Where(c => !ReferenceEquals(c, image)).Sum(c => c.Rect.Height);
-                        int contentHeight = headerHeight + side + padding;
-                        container.RectTransform.Resize(new Point(width, (int)Math.Ceiling(contentHeight / Math.Max(0.1f, fraction.Y))), false);
-                        root.RectTransform.Resize(new Point(contentWidth, contentHeight), false);
-                        container.RectTransform.IsFixedSize = true;
-                        (root as GUILayoutGroup)?.Recalculate();
-                    }
-                    else
-                    {
-                        image.RectTransform.AbsoluteOffset = new Point(padding, headerHeight);
-                        root.RectTransform.Resize(new Point(root.Rect.Width, EmoteLayout.RowHeight(headerHeight, side, padding)), false);
-                    }
+                    image.RectTransform.AbsoluteOffset = new Point(padding, padding);
+                    root.RectTransform.IsFixedSize = false;
+                    root.RectTransform.Resize(new Point(popup ? side + padding * 2 : root.Rect.Width, side + padding * 2), false);
+                    if (popup) root.RectTransform.IsFixedSize = true;
                     previousWidth = root.Rect.Width; previousScale = GUI.Scale;
                     list?.RecalculateChildren(); list?.UpdateScrollBarSize();
                 }
@@ -178,8 +146,13 @@ namespace EmoteChat
             for (int i = imageRows.Count - 1; i >= 0; i--)
                 if (imageRows[i].Root.RectTransform.Parent == null) { imageRows[i].Detach(); imageRows.RemoveAt(i); }
             if (imageRows.Count >= 192) { imageRows[0].Detach(); imageRows.RemoveAt(0); }
-            imageRows.Add(new ImageRow { Root = root, Original = original, Image = image, Layout = layout });
+            imageRows.Add(new ImageRow { Root = root, Image = image, Layout = layout });
             layout();
+        }
+        private void DrawImageCard(SpriteBatch batch, Rectangle rect, string hash)
+        {
+            // Transparent image-only content. No timestamp, filename, sender label or transport ID.
+            DrawAsset(batch, rect, hash);
         }
         private static void BubblePostfix(Character __instance, SpriteBatch spriteBatch, Camera cam)
         {
@@ -189,9 +162,7 @@ namespace EmoteChat
             int side = GUI.IntScale(80);
             Vector2 position = cam.WorldToScreen(__instance.DrawPosition) - new Vector2(side / 2, GUI.IntScale(150));
             var rect = new Rectangle((int)position.X, (int)position.Y, side, side);
-            if (!new Rectangle(0, 0, GameMain.GraphicsWidth, GameMain.GraphicsHeight).Intersects(rect)) return;
-            GUI.DrawRectangle(spriteBatch, rect, Color.Black * 0.7f, true);
-            plugin.DrawAsset(spriteBatch, rect, bubble.Hash);
+            if (new Rectangle(0, 0, GameMain.GraphicsWidth, GameMain.GraphicsHeight).Intersects(rect)) plugin.DrawImageCard(spriteBatch, rect, bubble.Hash);
         }
         private void ClearPresentation()
         {

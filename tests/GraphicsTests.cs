@@ -12,6 +12,49 @@ static class GraphicsTests
     static extern IntPtr CreateWindowExW(uint exStyle, string className, string title, uint style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
     [DllImport("user32.dll")] static extern bool DestroyWindow(IntPtr hwnd);
     static void Check(bool value, string name) { if (!value) throw new Exception(name); }
+    static void PickerSnapshot(GraphicsDevice device, SpriteBatch batch)
+    {
+        using var painter = new PickerPaint(device);
+        using var target = new RenderTarget2D(device, 1120, 820);
+        using var labelsFile = File.OpenRead(".test-fixtures/ui-labels.png");
+        using var labels = Texture2D.FromStream(device, labelsFile);
+        using var artFile = File.OpenRead(".test-fixtures/ui-emotes.png");
+        using var art = Texture2D.FromStream(device, artFile);
+        device.SetRenderTarget(target); device.Clear(new Color(11, 16, 24));
+        using var blend = new BlendState { ColorSourceBlend = Blend.One, ColorDestinationBlend = Blend.InverseSourceAlpha, AlphaSourceBlend = Blend.One, AlphaDestinationBlend = Blend.InverseSourceAlpha };
+        batch.Begin(SpriteSortMode.Deferred, blend, SamplerState.LinearClamp);
+        Rectangle R(int x, int y, int w, int h) => new Rectangle(100+x, 100+y, w, h);
+        void Round(int x, int y, int w, int h, Color c, int radius=12) => painter.Round(batch, R(x,y,w,h), c, radius);
+        void Text(int row, int x, int y, float opacity=1) => batch.Draw(labels, R(x,y,720,48), new Rectangle(0,row*48,720,48), Color.White*opacity);
+        Round(-4,8,928,624,Color.Black*0.3f,24);
+        Round(0,0,920,620,PickerPaint.Surface,20);
+        Text(0,24,16); Text(1,24,54,0.8f);
+        Round(712,22,124,32,new Color(53,66,98),10); Text(11,730,22);
+        Round(852,22,40,32,PickerPaint.Card,10); Text(12,865,22);
+        Round(24,110,78,34,new Color(53,66,98),10); Text(2,45,111);
+        Round(110,110,78,34,PickerPaint.Card,10); Text(3,131,111);
+        Round(204,110,466,34,PickerPaint.Card,10); Text(4,220,110,0.55f);
+        Round(686,110,210,436,new Color(29,33,41),16); Text(5,704,124,0.65f);
+        for(int i=0;i<15;i++)
+        {
+            int x=24+(i%5)*129,y=158+(i/5)*129;
+            Round(x,y,119,119,i==0?PickerPaint.Accent:PickerPaint.Card,14);
+            if(i==0) Round(x+3,y+3,113,113,PickerPaint.Card,12);
+            batch.Draw(art,R(x+18,y+18,83,83),new Rectangle((i%8)*128,0,128,128),Color.White);
+        }
+        batch.Draw(art,R(704,174,174,174),new Rectangle(0,0,128,128),Color.White);
+        Text(6,704,364); Text(7,24,560,0.65f);
+        Round(582,566,104,32,PickerPaint.Card,10);Text(8,596,566);
+        Round(698,566,88,32,PickerPaint.Card,10);Text(9,724,566);
+        Round(798,566,98,32,PickerPaint.Accent,10);Text(10,829,566);
+        batch.End(); device.SetRenderTarget(null);
+        var colors=new Color[1120*820]; target.GetData(colors);
+        Check(colors[101*1120+101] != PickerPaint.Surface, "rounded corner preserves backdrop");
+        Check(colors[190*1120+500] == PickerPaint.Surface, "panel center uses custom surface");
+        Directory.CreateDirectory("dist");
+        using var output=File.Create("dist/EmoteChat-0.2.0-ui-preview.png"); target.SaveAsPng(output,1120,820);
+        Console.WriteLine("PASS production rounded painter: offscreen GPU UI fixture (synthetic art; not an in-game screenshot)");
+    }
     static void Main(string[] args)
     {
         GraphicsAdapter.UseDriverType = GraphicsAdapter.DriverType.FastSoftware;
@@ -57,6 +100,7 @@ static class GraphicsTests
                     Check(actual.AsSpan().SequenceEqual(animation.FramePixels), "imported GIF GPU bytes match frame " + f);
                 }
             }
+            PickerSnapshot(device, batch);
             Console.WriteLine("PASS real WARP/SpriteBatch: animated head+chat pixel readback, rectangle bounds and imported GIF frames");
         }
         finally { DestroyWindow(window); }
