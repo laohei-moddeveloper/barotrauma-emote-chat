@@ -1,6 +1,6 @@
 {
   "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
-  "release_status": "0.2.0-github-published-workshop-update-pending",
+  "release_status": "0.2.0-github-and-workshop-published",
   "workshop_app_id": 602960,
   "workshop_item_id": "3833045408",
   "workshop_create_new": false,
@@ -25,7 +25,7 @@
   "github_release_tag": "v0.2.0",
   "verified_source_revision": "374a193486f7c16b8bc686c4c20124d82a10c2d0",
   "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41775108465",
-  "workshop_status": "existing-public-item-0.2.0-update-pending",
+  "workshop_status": "existing-public-item-0.2.0-updated",
   "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3833045408",
   "local_validation": {
     "client_server_compile_actual_publicized": true,
@@ -42,7 +42,7 @@
     "cover_sha256_match": true,
     "download_all_files_match": true
   },
-  "pending_update_version": "0.2.0",
+  "pending_update_version": null,
   "pending_update_requires": "server and all clients, protocol v2, new presentation hooks",
   "fix_validation": {
     "python_tests": 11,
@@ -62,5 +62,17 @@
     "native_blend_transparent_corner_readback_passed": true
   },
   "published_asset_validation": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41775523549",
-  "package_sha256": "f7fe0652ccdbeaacc5217fe15003fedeef507fe252719498677392330648dcba"
+  "package_sha256": "f7fe0652ccdbeaacc5217fe15003fedeef507fe252719498677392330648dcba",
+  "local_update_20261104": {
+    "source": "9512f46922aa97f1963e3e736a0b4031ead3fef9",
+    "upload_zip_sha256": "730152c304913296a117202c17f45dce209d025f997438a35d14d465f79cb6d9",
+    "upload_result": "OK",
+    "updated_utc": "2026-11-04T04:54:58Z",
+    "python_passed": 10,
+    "python_skipped": 1,
+    "client_server_compile": true,
+    "game_started": false,
+    "luacs_dependency_verified": true,
+    "download_verification": "All published files match; 5 pre-existing personal Library files preserved and excluded from payload."
+  }
 }
