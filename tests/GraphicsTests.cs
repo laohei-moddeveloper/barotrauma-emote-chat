@@ -21,8 +21,9 @@ static class GraphicsTests
         using var artFile = File.OpenRead(".test-fixtures/ui-emotes.png");
         using var art = Texture2D.FromStream(device, artFile);
         device.SetRenderTarget(target); device.Clear(new Color(11, 16, 24));
-        using var blend = new BlendState { ColorSourceBlend = Blend.One, ColorDestinationBlend = Blend.InverseSourceAlpha, AlphaSourceBlend = Blend.One, AlphaDestinationBlend = Blend.InverseSourceAlpha };
-        batch.Begin(SpriteSortMode.Deferred, blend, SamplerState.LinearClamp);
+        // Barotrauma's fork uses straight alpha (including Color.operator*).
+        // Use the same blend as the in-game UI; premultiplied blend adds RGB in transparent corners.
+        batch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.LinearClamp);
         Rectangle R(int x, int y, int w, int h) => new Rectangle(100+x, 100+y, w, h);
         void Round(int x, int y, int w, int h, Color c, int radius=12) => painter.Round(batch, R(x,y,w,h), c, radius);
         void Text(int row, int x, int y, float opacity=1) => batch.Draw(labels, R(x,y,720,48), new Rectangle(0,row*48,720,48), Color.White*opacity);
@@ -49,7 +50,7 @@ static class GraphicsTests
         Round(798,566,98,32,PickerPaint.Accent,10);Text(10,829,566);
         batch.End(); device.SetRenderTarget(null);
         var colors=new Color[1120*820]; target.GetData(colors);
-        Check(colors[101*1120+101] != PickerPaint.Surface, "rounded corner preserves backdrop");
+        Check(colors[101*1120+101] == new Color(11,16,24), "transparent rounded corner exactly preserves backdrop with native UI blend");
         Check(colors[190*1120+500] == PickerPaint.Surface, "panel center uses custom surface");
         Directory.CreateDirectory("dist");
         using var output=File.Create("dist/EmoteChat-0.2.0-ui-preview.png"); target.SaveAsPng(output,1120,820);
