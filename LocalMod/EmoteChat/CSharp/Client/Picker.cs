@@ -19,8 +19,10 @@ namespace EmoteChat
         private GUIListBox pickerList;
         private GUITextBlock previewLabel;
         private GUIButton sendButton;
+        private GUITextBox pickerSearch;
         private void ClosePicker()
         {
+            pickerSearch?.Deselect(); pickerSearch = null;
             if (picker != null) { GUIMessageBox.MessageBoxes.Remove(picker); picker.RectTransform.Parent = null; }
             picker = null; pickerList = null; status = null; previewLabel = null; sendButton = null;
         }
@@ -87,7 +89,10 @@ namespace EmoteChat
                 var field = new GUIFrame(new RectTransform(new Point(searchWidth, S(34)), panel.RectTransform) { AbsoluteOffset = new Point(searchX, top) }, style: null);
                 new GUICustomComponent(new RectTransform(Vector2.One, field.RectTransform), (sb, c) => uiPaint?.Round(sb, c.Rect, PickerPaint.Card, S(10))) { CanBeFocused = false };
                 var input = new GUITextBox(new RectTransform(new Vector2(0.9f, 1), field.RectTransform, Anchor.Center), search, textColor: PickerPaint.Ink, font: GUIStyle.SmallFont, style: null, createPenIcon: false) { ToolTip = "搜索本地表情名称" };
-                input.OnTextChanged += (_, text) => { search = text.Length > 80 ? text.Substring(0, 80) : text; RebuildCards(); return true; };
+                pickerSearch = input;
+                var placeholder = Label(new Rectangle(S(8), 0, searchWidth - S(16), S(34)), field, "搜索你的表情…", PickerPaint.Muted);
+                placeholder.Visible = search.Length == 0;
+                input.OnTextChanged += (_, text) => { search = text.Length > 80 ? text.Substring(0, 80) : text; placeholder.Visible = text.Length == 0; RebuildCards(); return true; };
             }
             pickerList = new GUIListBox(new RectTransform(new Point(gridWidth, height - top - S(48) - footer), panel.RectTransform) { AbsoluteOffset = new Point(margin, top + S(48)) }, style: null) { AutoHideScrollBar = false, ScrollBarVisible = false, ResizeContentToMakeSpaceForScrollBar = false };
             new GUICustomComponent(new RectTransform(new Point(4, pickerList.Rect.Height), panel.RectTransform) { AbsoluteOffset = new Point(margin + gridWidth - 4, top + S(48)) }, (sb, c) =>
