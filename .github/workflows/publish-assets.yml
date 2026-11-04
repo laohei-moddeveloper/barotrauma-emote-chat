@@ -1,9 +1,13 @@
 name: Publish verified preview assets
 on:
-  push:
-    paths:
-      - .github/workflows/publish-assets.yml
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful validation run ID
+        required: true
+      tag:
+        description: Existing release tag matching the validated source
+        required: true
 permissions:
   contents: write
   actions: read
@@ -14,12 +18,13 @@ jobs:
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: EmoteChat-0.1.0-preview
-          run-id: 41661944454
+          name: EmoteChat-0.1.1
+          run-id: ${{ inputs.run_id }}
           github-token: ${{ github.token }}
           path: release-assets
       - name: Attach both verified packages
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release upload v0.1.0-preview release-assets/*.zip --clobber
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: gh release upload "$RELEASE_TAG" release-assets/*.zip --clobber

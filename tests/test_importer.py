@@ -6,6 +6,8 @@ import struct
 import subprocess
 import os
 import sys
+import shutil
+from unittest import mock
 import tempfile
 import unittest
 import zlib
@@ -96,6 +98,34 @@ class ImportTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(Path(__file__).parents[1] / "tools/import_emotes.py"), str(source), "--library", str(self.root / "library")], capture_output=True, env=env)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("已导入", result.stdout.decode("utf-8"))
+
+    def test_short_two_frame_gif_does_not_turn_into_still(self):
+        source = self.root / "short.gif"
+        a = Image.new("RGB", (8, 8), (255, 0, 0))
+        b = Image.new("RGB", (8, 8), (0, 255, 0))
+        a.save(source, save_all=True, append_images=[b], duration=50, loop=0)
+        w, h, count, delays, pixels = unpack(importer.convert(source))
+        self.assertEqual(count, 2)
+        self.assertEqual(delays, (50, 50))
+        self.assertNotEqual(pixels[:w*h*4], pixels[w*h*4:])
+
+    def test_portable_importers_and_working_directories_share_library(self):
+        root = Path(__file__).parents[1]
+        source = self.root / "picture.png"
+        Image.new("RGB", (8, 8), "red").save(source)
+        env = os.environ.copy()
+        variable = "LOCALAPPDATA" if os.name == "nt" else "XDG_DATA_HOME"
+        env[variable] = str(self.root / "user-data")
+        for folder in (self.root / "drive-c/Tools", self.root / "drive-d/Other/Tools"):
+            folder.mkdir(parents=True)
+            (folder.parent / "filelist.xml").write_text("<contentpackage/>")
+            script = folder / "import_emotes.py"
+            shutil.copyfile(root / "tools/import_emotes.py", script)
+            result = subprocess.run([sys.executable, str(script), str(source)], cwd=folder, env=env, capture_output=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((folder.parent / "Library").exists())
+        expected = self.root / "user-data/Barotrauma/EmoteChat/Library"
+        self.assertEqual(len(list(expected.glob("*.ecp"))), 1)
 
 
 if __name__ == "__main__":

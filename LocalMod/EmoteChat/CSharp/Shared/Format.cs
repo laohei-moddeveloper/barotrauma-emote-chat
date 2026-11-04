@@ -44,7 +44,7 @@ namespace EmoteChat
                 for (int i = 0; i < count; i++)
                 {
                     delays[i] = reader.ReadUInt16(); duration += delays[i];
-                    if (delays[i] < 80 || delays[i] > 10000) throw new InvalidDataException("Invalid delay");
+                    if (delays[i] < 20 || delays[i] > 10000) throw new InvalidDataException("Invalid delay");
                 }
                 if (duration > 10000) throw new InvalidDataException("Animation too long");
                 // Raw DEFLATE; dimensions and frame count bound allocation BEFORE decompression.

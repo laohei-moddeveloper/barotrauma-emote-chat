@@ -12,9 +12,13 @@ namespace EmoteChat
         { this.rate = rate; this.capacity = capacity; tokens = capacity; last = now; }
         public bool Take(int amount, double now)
         {
-            tokens = Math.Min(capacity, tokens + Math.Max(0, now - last) * rate); last = Math.Max(last, now);
-            if (amount < 0 || amount > tokens) return false;
+            if (!Available(amount, now)) return false;
             tokens -= amount; return true;
+        }
+        public bool Available(int amount, double now)
+        {
+            tokens = Math.Min(capacity, tokens + Math.Max(0, now - last) * rate); last = Math.Max(last, now);
+            return amount >= 0 && amount <= tokens;
         }
     }
     public sealed class AssemblyBuffer
@@ -35,7 +39,7 @@ namespace EmoteChat
                 throw new InvalidDataException("Invalid chunk");
             int slot = offset / 768;
             // Reordering uses the already allocated buffer, never a per-packet queue.
-            if (filled[slot] || slot >= Offset / 768 + 8) return false;
+            if (filled[slot] || slot >= Offset / 768 + TransferLimits.WindowChunks) return false;
             Buffer.BlockCopy(bytes, 0, Data, offset, bytes.Length); filled[slot] = true;
             while (Offset < Data.Length && filled[Offset / 768]) Offset += Math.Min(768, Data.Length - Offset);
             return Offset == Data.Length;

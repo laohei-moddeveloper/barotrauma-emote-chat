@@ -15,7 +15,7 @@ Bring your own emotes aboard—with images and GIFs in chat and above your chara
 
 [h2]How to use[/h2]
 1. Requires Barotrauma 1.13.5.0, LuaCs and C# support on the host/dedicated server and clients.
-2. Double-click EmoteImporter.exe in the mod's Tools folder to select images, or drag PNG/JPG/GIF files directly onto that EXE. Source users can run the Python importer.
+2. Use the new 0.1.1 EmoteImporter.exe to select images, or drag PNG/JPG/GIF files onto it. The EXE can run from any drive; all copies use %LOCALAPPDATA%/Barotrauma/EmoteChat/Library. Source users can run the Python importer.
 3. Join the server, press F8, and click an emote. Reopen the picker after importing new files.
 4. The first transfer shows progress; later sends reuse the cache. The bubble timer starts when the asset is ready.
 
@@ -33,3 +33,5 @@ Special thanks to [url=https://steamcommunity.com/sharedfiles/filedetails/?id=29
 Recommended for crewmates who enjoy Touhou-themed characters, outfits, jobs and events in Barotrauma—a little Gensokyo aboard your submarine.
 
 [url=https://github.com/laohei-moddeveloper/barotrauma-emote-chat]Source, installation and validation notes[/url]
+
+[b]0.1.1 update[/b]: upgrade server and clients together. Re-import original short GIFs if the old importer flattened them. First-time data goes only to eligible recipients; later sends reuse caches. The server shares one compressed asset and schedules downloads under a 128 KiB/s aggregate budget.

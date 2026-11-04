@@ -25,7 +25,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tests/make_fixtures.py
       - name: Core and cross-language tests
-        run: dotnet run --project tests/CoreTests.csproj -- .test-fixtures/still.ecp .test-fixtures/motion.ecp
+        run: dotnet run --project tests/CoreTests.csproj -- .test-fixtures/still.ecp .test-fixtures/motion.ecp .test-fixtures/short.ecp
       - name: Download audited reference assemblies
         shell: pwsh
         run: |
@@ -38,6 +38,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           dotnet build tools/CompileCheck.csproj -p:Flavor=Server --nologo
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Real runtime hooks and software graphics regression
+        shell: pwsh
+        run: |
+          Invoke-WebRequest 'https://github.com/evilfactory/LuaCsForBarotrauma/releases/download/latest/luacsforbarotrauma_build_windows_client.zip' -OutFile runtime.zip
+          if ((Get-FileHash runtime.zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'b089eaaea806cd0ea34447b1c36c9f1005c4c62ff13be18f0dfb84a0306de9be') { throw 'Audited runtime changed' }
+          Expand-Archive runtime.zip .runtime-client
+          $runtime=(Resolve-Path .runtime-client).Path
+          dotnet run --project tests/CoreTests.csproj -- --probe $runtime Barotrauma tools/bin/Client/net8.0/CompileCheck.dll
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/GraphicsTests.csproj -p:RuntimeDir=$runtime -- .test-fixtures/short.ecp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build standalone local importer
         run: python -m PyInstaller --clean --onefile --name EmoteImporter --distpath build/importer tools/import_emotes.py
       - name: Test executable and package
@@ -46,10 +57,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package.py --importer build/importer/EmoteImporter.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Expand-Archive dist/EmoteChat-0.1.0-preview.zip .test-fixtures/installed
+          Expand-Archive dist/EmoteChat-0.1.1.zip .test-fixtures/installed
           .test-fixtures/installed/LocalMods/EmoteChat/Tools/EmoteImporter.exe .test-fixtures/motion.gif
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if (-not (Get-ChildItem .test-fixtures/installed/LocalMods/EmoteChat/Library -Filter *.ecp)) { throw 'Default importer path is wrong' }
+          $library=dotnet run --no-build --project tests/CoreTests.csproj -- --library-location
+          if (-not (Get-ChildItem $library -Filter *.ecp)) { throw 'Importer and game disagree about canonical library' }
+          $portable=(New-Item -ItemType Directory .test-fixtures/portable-on-other-drive).FullName
+          Copy-Item build/importer/EmoteImporter.exe $portable
+          $short=(Resolve-Path .test-fixtures/short.gif).Path
+          Push-Location $portable
+          try { & .\EmoteImporter.exe $short; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } } finally { Pop-Location }
+          if ((Get-ChildItem $library -Filter *.ecp).Count -lt 2) { throw 'Portable EXE did not share the user library' }
           python -m unittest discover -s tests -p "test_package.py" -v
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python tools/package_workshop.py --importer build/importer/EmoteImporter.exe
@@ -63,5 +81,5 @@ jobs:
           }
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: EmoteChat-0.1.0-preview
+          name: EmoteChat-0.1.1
           path: dist/*.zip

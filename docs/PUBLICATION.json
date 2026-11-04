@@ -25,7 +25,7 @@
   "github_release_tag": "v0.1.0-preview",
   "verified_source_revision": "8a32712c48d69675907a05d153bd15022a3c68e5",
   "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41661944454",
-  "workshop_status": "published-public-local-isolated-validation",
+  "workshop_status": "0.1.0-public-0.1.1-fix-awaiting-update",
   "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3833045408",
   "local_validation": {
     "client_server_compile_actual_publicized": true,
@@ -41,5 +41,7 @@
     "public": true,
     "cover_sha256_match": true,
     "download_all_files_match": true
-  }
+  },
+  "pending_update_version": "0.1.1",
+  "pending_update_requires": "server and all clients, protocol v2"
 }

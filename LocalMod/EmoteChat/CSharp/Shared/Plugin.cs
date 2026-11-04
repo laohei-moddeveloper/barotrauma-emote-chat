@@ -31,9 +31,9 @@ namespace EmoteChat
         internal static double Now => Clock.Elapsed.TotalSeconds;
         private Harmony harmony;
         internal NetworkBridge network;
-        internal readonly Bucket global = new Bucket(32768, 1024, Now);
-        private readonly Bucket ingressBytes = new Bucket(65536, 65536, Now);
-        private readonly Bucket ingressPackets = new Bucket(512, 512, Now);
+        internal readonly Bucket global = new Bucket(TransferLimits.GlobalBytesPerSecond, TransferLimits.GlobalBurstBytes, Now);
+        private readonly Bucket ingressBytes = new Bucket(TransferLimits.GlobalReceiveBytesPerSecond, 65536, Now);
+        private readonly Bucket ingressPackets = new Bucket(TransferLimits.GlobalPacketsPerSecond, 512, Now);
         public void PreInitPatching() { }
         public void OnLoadCompleted() { }
         public void Initialize()
@@ -48,7 +48,7 @@ namespace EmoteChat
                 harmony = new Harmony(PatchId);
                 Patch(typeof(CoroutineManager), "Update", new[] { typeof(bool), typeof(float) }, nameof(UpdatePostfix), false);
                 Install();
-                Log("0.1 preview loaded. Protocol v1; bounded pixel assets only.");
+                Log("0.1.1 loaded. Protocol v2; bounded pixel assets only.");
             }
             catch (Exception error) { Log("Disabled: " + error.GetBaseException().Message); Dispose(); }
         }
@@ -94,7 +94,7 @@ namespace EmoteChat
     // Reflect only at startup, then cache typed send/start delegates. API mismatch disables the mod.
     internal sealed class NetworkBridge : IDisposable
     {
-        private const string Channel = "emotechat.pixels.v1";
+        private const string Channel = "emotechat.pixels.v2";
         private Action<IReadMessage, Client> callback;
         private Func<string, IWriteMessage> start;
         private Action<IWriteMessage, Client> send;
@@ -131,10 +131,11 @@ namespace EmoteChat
             receive.Invoke(service, new object[] { Channel, handler });
         }
         private void Dispatch(IReadMessage message, Client client) => callback?.Invoke(message, client);
-        public void Send(byte[] packet, Client recipient = null)
+        public bool Send(byte[] packet, Client recipient = null)
         {
-            if (start == null || Plugin.Active == null || !Plugin.Active.global.Take(packet.Length + 32, Plugin.Now)) return;
+            if (start == null || Plugin.Active == null || !Plugin.Active.global.Take(packet.Length + 32, Plugin.Now)) return false;
             var message = start(Channel); message.WriteUInt16((ushort)packet.Length); message.WriteBytes(packet, 0, packet.Length); send(message, recipient);
+            return true;
         }
         public void Dispose() { callback = null; start = null; send = null; }
     }

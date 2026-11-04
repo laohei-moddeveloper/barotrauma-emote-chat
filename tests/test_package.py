@@ -12,6 +12,24 @@ spec.loader.exec_module(packager)
 
 
 class PackageTests(unittest.TestCase):
+    def test_update_bundle_cannot_create_a_duplicate_workshop_item(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        try:
+            from package_workshop import build
+            import json
+            with tempfile.TemporaryDirectory() as temp:
+                fake_importer = Path(temp) / "EmoteImporter.exe"
+                fake_importer.write_bytes(b"packaging fixture, not executed")
+                output = Path(temp) / "update.zip"
+                build(output, fake_importer)
+                with zipfile.ZipFile(output) as archive:
+                    state = json.loads(archive.read("workshop/publish-state.json"))
+                    self.assertEqual(state["file_id"], "3833045408")
+                    self.assertEqual(state["app_id"], 602960)
+                    self.assertNotIn("workshop/create-new-item.vdf", archive.namelist())
+        finally:
+            sys.path.pop(0)
+
     def test_workshop_staging_without_publishing(self):
         sys.path.insert(0, str(ROOT / "tools"))
         try:

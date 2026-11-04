@@ -15,7 +15,7 @@
 
 [h2]怎么用[/h2]
 1. 游戏版本：Barotrauma 1.13.5.0。房主/专用服和客户端都安装本模组与 LuaCs，并启用 C# 支持。
-2. 双击模组 Tools 目录的 EmoteImporter.exe 选择图片，或直接把 PNG/JPG/GIF 拖到这个 EXE 上。源码版可运行 Python 导入工具。
+2. 双击 0.1.1 随包的新版 EmoteImporter.exe 选择图片，或把 PNG/JPG/GIF 拖到这个 EXE 上。导入器可放在任意磁盘；统一表情库位于 %LOCALAPPDATA%/Barotrauma/EmoteChat/Library，不依赖 C 盘某个特定 EXE。源码版可运行 Python 导入工具。
 3. 加入服务器，按 F8 打开面板，点击表情发送。新导入后重新打开面板即可。
 4. 首次同步请看进度，后续发送复用缓存。头顶气泡在资源就绪后计时。
 
@@ -33,3 +33,5 @@
 喜欢东方角色、特色装束、职业与事件内容的船员，也推荐去看看这个模组，让木卫二之旅多一点幻想乡的味道。
 
 [url=https://github.com/laohei-moddeveloper/barotrauma-emote-chat]源码、详细安装与测试记录[/url]
+
+[b]0.1.1 更新提醒[/b]：服务器和客户端都要升级。旧版若已把短 GIF 导成静图，请用新版导入器重导原 GIF。多人首次接收只给有权收件的人分发，之后复用缓存；服务器共享一份压缩资源，按 128 KiB/s 总出口预算排队。

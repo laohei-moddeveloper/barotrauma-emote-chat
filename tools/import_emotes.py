@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import os
+import platform
 from pathlib import Path
 import struct
 import sys
@@ -34,34 +35,34 @@ def convert(source: Path) -> bytes:
         count = getattr(image, "n_frames", 1)
         if count > 240:
             raise ValueError("源动画不超过 240 帧")
-        frames, delays, elapsed, next_sample = [], [], 0, 0
+        frames, delays, elapsed = [], [], 0
+        stride = max(1, (count + 47) // 48)
         for index in range(count):
             image.seek(index)
             delay = max(20, min(int(image.info.get("duration", 100)), 10000))
             end = elapsed + delay
             if elapsed >= 10000:
                 break
-            if not frames or elapsed >= next_sample:
+            if index % stride == 0:
                 frame = ImageOps.exif_transpose(image.convert("RGBA"))
                 frame.thumbnail((128, 128), Image.Resampling.LANCZOS)
                 if frames and frame.size != frames[0].size:
                     raise ValueError("动画画布尺寸不一致")
                 frames.append(frame.copy())
                 delays.append(0)
-                next_sample = elapsed + 100
             delays[-1] += min(end, 10000) - elapsed
             elapsed = end
-        # Preserve timing when sampling down to 48 frames; last short interval is clamped.
+        # Preserve short GIFs, including two-frame reactions. Sample only above the frame cap.
         while len(frames) > 48:
             new_frames, new_delays = [], []
             for i in range(0, len(frames), 2):
                 new_frames.append(frames[i]); new_delays.append(sum(delays[i:i + 2]))
             frames, delays = new_frames, new_delays
-        delays = [max(80, min(d, 10000)) for d in delays]
+        delays = [max(20, min(d, 10000)) for d in delays]
         if sum(delays) > 10000:
             excess = sum(delays) - 10000
             for i in range(len(delays) - 1, -1, -1):
-                take = min(excess, delays[i] - 80); delays[i] -= take; excess -= take
+                take = min(excess, delays[i] - 20); delays[i] -= take; excess -= take
             if excess:
                 raise ValueError("动画时间超过限制")
         # If photographic animation is too large, reduce spatial resolution, preserving timing.
@@ -86,16 +87,23 @@ def convert(source: Path) -> bytes:
         raise ValueError("压缩后仍超过 256 KiB")
 
 
+def user_library() -> Path:
+    if os.name == "nt":
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
+    elif platform.system() == "Darwin":
+        base = Path.home() / "Library/Application Support"
+    else:
+        base = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share"))
+    return base / "Barotrauma/EmoteChat/Library"
+
+
 def main():
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(description="将本地 PNG/JPG/GIF 导入 Emote Chat")
     parser.add_argument("sources", nargs="*", type=Path)
-    tool_path = Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__)
-    package_root = tool_path.resolve().parents[1]
-    default_library = package_root / "Library" if (package_root / "filelist.xml").exists() else package_root / "LocalMod/EmoteChat/Library"
-    parser.add_argument("--library", type=Path, default=default_library)
+    parser.add_argument("--library", type=Path, default=user_library(), help="导出目录；默认与游戏共享固定用户表情库，不依赖 EXE 位置")
     args = parser.parse_args()
     window = None
     if not args.sources:
@@ -141,7 +149,7 @@ def main():
     if window is not None:
         from tkinter import messagebox
         if failed: messagebox.showwarning("表情导入", "部分文件导入失败，请查看提示。", parent=window)
-        else: messagebox.showinfo("表情导入", "导入完成。请重新打开游戏内表情面板。", parent=window)
+        else: messagebox.showinfo("表情导入", "导入完成。请重新打开游戏内表情面板。\n\n表情库：" + str(args.library), parent=window)
         window.destroy()
     raise SystemExit(1 if failed else 0)
 

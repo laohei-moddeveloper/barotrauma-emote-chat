@@ -27,7 +27,7 @@ def build(output: Path, importer: Path | None = None):
         files["LocalMods/EmoteChat/Tools/EmoteImporter.exe"] = importer
     for name in ("README.md", "LICENSE"):
         files[name] = ROOT / name
-    for name in ("SECURITY.md", "VALIDATION.md", "RESULTS.txt"):
+    for name in ("SECURITY.md", "VALIDATION.md", "RESULTS.txt", "FIXES-0.1.1.zh-CN.md"):
         files["docs/" + name] = ROOT / "docs" / name
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -41,7 +41,7 @@ def build(output: Path, importer: Path | None = None):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", type=Path, default=ROOT / "dist/EmoteChat-0.1.0-preview.zip")
+    parser.add_argument("--output", type=Path, default=ROOT / "dist/EmoteChat-0.1.1.zip")
     parser.add_argument("--importer", type=Path)
     args = parser.parse_args()
     build(args.output, args.importer)

@@ -19,5 +19,7 @@ for i in range(12):
     ImageDraw.Draw(frame).ellipse((i * 4, 24, i * 4 + 24, 48), fill=(255, 180, 0, 255))
     frames.append(frame)
 frames[0].save(out / "motion.gif", save_all=True, append_images=frames[1:], duration=100, loop=0, disposal=2)
-for source in (out / "still.png", out / "motion.gif"):
+short = [Image.new("RGB", (8, 8), "red"), Image.new("RGB", (8, 8), "green")]
+short[0].save(out / "short.gif", save_all=True, append_images=short[1:], duration=50, loop=0)
+for source in (out / "still.png", out / "motion.gif", out / "short.gif"):
     (out / (source.stem + ".ecp")).write_bytes(importer.convert(source))

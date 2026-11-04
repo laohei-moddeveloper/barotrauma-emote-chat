@@ -53,10 +53,11 @@ namespace EmoteChat
             if (!peers.TryGetValue(client, out var peer))
             {
                 // Only a valid handshake allocates per-client state. Identity comes from the connection.
-                if (packet.Length != 2 || packet[0] != Session.Hello || packet[1] != 1 || peers.Count >= 64) return;
+                if (packet.Length != 2 || packet[0] != Session.Hello || packet[1] != 2 || peers.Count >= 64) return;
                 peer = new Peer();
                 var state = peer;
                 peer.Session = new Session(true, false, cache, data => network.Send(data, client), Now);
+                peer.Session.CanSend = size => global.Available(size + 32, Now);
                 peer.Session.AllowOffer = _ => true;
                 peer.Session.AllowGet = hash => state.Grants.TryGetValue(hash, out double until) && until >= Now;
                 peer.Session.Received = hash =>

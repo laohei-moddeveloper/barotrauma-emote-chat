@@ -4,6 +4,10 @@
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/Format.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/Bounded.cs" />
     <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/Session.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/TransferLimits.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/LibraryLocation.cs" />
+    <Compile Include="../LocalMod/EmoteChat/CSharp/Shared/AnimationPlayback.cs" />
     <Compile Include="CoreTests.cs" />
+    <Compile Include="DistributionTests.cs" />
   </ItemGroup>
 </Project>

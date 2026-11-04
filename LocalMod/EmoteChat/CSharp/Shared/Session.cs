@@ -5,12 +5,12 @@ using System.Threading.Tasks;
 
 namespace EmoteChat
 {
-    // Eight-chunk window: bounded memory, explicit offsets, retry-safe, no reliance on packet ordering.
+    // Bounded sliding window with receive reordering and explicit congestion budgets.
     public sealed class Session : IDisposable
     {
         public const byte Hello = 1, Welcome = 2, Offer = 3, Ack = 4, Chunk = 5, Complete = 6, Get = 7, Reject = 8;
         private static readonly SemaphoreSlim DecodeGate = new SemaphoreSlim(1, 1);
-        private readonly Action<byte[]> send;
+        private readonly Func<byte[], bool> send;
         private readonly bool server;
         private readonly AssetCache cache;
         private readonly Bucket incoming, outgoing, offers, packets;
@@ -23,16 +23,20 @@ namespace EmoteChat
         public bool Ready { get; private set; }
         public Func<string, bool> AllowOffer = _ => false;
         public Func<string, bool> AllowGet = _ => false;
+        public Func<int, bool> CanSend = _ => true;
         public Action<string> Sent, Received;
         public Action<string> Error;
         public bool Busy => tx != null;
         public bool Receiving => rx != null || decoding != null;
         public int Progress => tx == null || txOffset < 0 ? 0 : txOffset * 100 / tx.Encoded.Length;
         public Session(bool server, bool pixels, AssetCache cache, Action<byte[]> send, double now)
+            : this(server, pixels, cache, data => { send(data); return true; }, now) { }
+        public Session(bool server, bool pixels, AssetCache cache, Func<byte[], bool> send, double now)
         {
             this.server = server; WantPixels = pixels; this.cache = cache; this.send = send;
-            incoming = new Bucket(16384, 32768, now); outgoing = new Bucket(8192, 1024, now); offers = new Bucket(0.1, 2, now);
-            packets = new Bucket(32, 16, now);
+            incoming = new Bucket(TransferLimits.PeerReceiveBytesPerSecond, 32768, now);
+            outgoing = new Bucket(TransferLimits.PeerBytesPerSecond, TransferLimits.PeerBurstBytes, now); offers = new Bucket(1, 4, now);
+            packets = new Bucket(TransferLimits.PeerPacketsPerSecond, 64, now);
         }
         private readonly bool WantPixels;
         public void Upload(Asset asset, double now)
@@ -54,34 +58,42 @@ namespace EmoteChat
                 }
                 else { _ = task.Exception; string hash = rx.Hash; rx = null; Write(Reject, hash); Error?.Invoke("Invalid image data"); }
             }
-            if (rx != null && decoding == null && now - rx.Started > 90) rx = null;
+            if (rx != null && decoding == null && now - rx.Started > 180) rx = null;
             if (!Ready)
             {
-                if (!server && now - lastSend > 3) { Write(Hello); lastSend = now; }
+                if (!server && now - lastSend > 0.5) { Write(Hello); lastSend = now; }
                 if (tx != null && now - txStarted > 15) { tx = null; Error?.Invoke("Server does not answer Emote Chat handshake"); }
                 return;
             }
             if (tx == null) return;
-            if (now - txStarted > 90) { tx = null; Error?.Invoke("Transfer timeout"); return; }
-            if (now - lastSend < 0.085) return;
+            if (now - txStarted > 180) { tx = null; Error?.Invoke("Transfer timeout"); return; }
+            for (int burst = 0; burst < TransferLimits.PacketsPerTick; burst++)
+            {
             bool offer = txOffset < 0;
             if (offer && now - lastSend < 2) return;
-            if (!offer && sentOffset >= Math.Min(tx.Encoded.Length, txOffset + 8 * 768))
+            if (!offer && sentOffset >= Math.Min(tx.Encoded.Length, txOffset + TransferLimits.WindowChunks * 768))
             {
                 if (now - lastProgress < 2) return;
                 if (sentOffset == tx.Encoded.Length) offer = true; // repeat receipt request
                 else sentOffset = txOffset;
             }
             int size = offer ? 48 : Math.Min(768, tx.Encoded.Length - sentOffset) + 48;
+            if (!CanSend(size)) return;
             if (!outgoing.Take(size, now)) return;
-            if (offer) Write(Offer, tx.Hash, tx.Encoded.Length);
+            if (offer)
+            {
+                if (Write(Offer, tx.Hash, tx.Encoded.Length)) lastSend = now;
+                return;
+            }
             else
             {
                 int count = Math.Min(768, tx.Encoded.Length - sentOffset);
-                Write(Chunk, tx.Hash, sentOffset, tx.Encoded, sentOffset, count); sentOffset += count;
+                if (!Write(Chunk, tx.Hash, sentOffset, tx.Encoded, sentOffset, count)) return;
+                sentOffset += count;
                 highWater = Math.Max(highWater, sentOffset);
             }
             lastSend = now;
+            }
         }
         public void Receive(byte[] packet, double now)
         {
@@ -92,9 +104,9 @@ namespace EmoteChat
                 byte kind = reader.ReadByte();
                 if (kind == Hello || kind == Welcome)
                 {
-                    if (stream.Length != 2 || reader.ReadByte() != 1) return;
+                    if (stream.Length != 2 || reader.ReadByte() != 2) return;
                     if (server && kind == Hello && now - lastWelcome >= 1) { Ready = true; Write(Welcome); lastWelcome = now; }
-                    else if (!server && kind == Welcome) Ready = true;
+                    else if (!server && kind == Welcome && !Ready) { Ready = true; lastSend = -10; }
                     return;
                 }
                 if (!Ready || packet.Length < 33) return;
@@ -155,20 +167,22 @@ namespace EmoteChat
                 }
             }
         }
-        private void Write(byte kind, string hash = null, int value = 0, byte[] data = null, int offset = 0, int count = 0)
+        private bool Write(byte kind, string hash = null, int value = 0, byte[] data = null, int offset = 0, int count = 0)
         {
+            int length = hash == null ? 2 : 33 + ((kind == Offer || kind == Ack || kind == Chunk) ? 4 : 0) + count;
+            if (!CanSend(length)) return false;
             using (var memory = new MemoryStream(810))
             using (var writer = new BinaryWriter(memory))
             {
                 writer.Write(kind);
-                if (hash == null) writer.Write((byte)1);
+                if (hash == null) writer.Write((byte)2);
                 else
                 {
                     writer.Write(Convert.FromHexString(hash));
                     if (kind == Offer || kind == Ack || kind == Chunk) writer.Write(value);
                     if (data != null) writer.Write(data, offset, count);
                 }
-                send(memory.ToArray());
+                return send(memory.ToArray());
             }
         }
         public void Dispose()
