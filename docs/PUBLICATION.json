@@ -1,6 +1,6 @@
 {
   "github_repository": "laohei-moddeveloper/barotrauma-emote-chat",
-  "release_status": "0.3.0-github-published-workshop-update-pending",
+  "release_status": "0.3.0-github-and-workshop-published",
   "workshop_app_id": 602960,
   "workshop_item_id": "3833045408",
   "workshop_create_new": false,
@@ -25,7 +25,7 @@
   "github_release_tag": "v0.3.0",
   "verified_source_revision": "088661797e6af2cd3a825ff9d2ab6bc5f85aa187",
   "windows_ci": "https://github.com/laohei-moddeveloper/barotrauma-emote-chat/actions/runs/41791595290",
-  "workshop_status": "existing-public-item-0.2.0-updated-0.3.0-update-pending",
+  "workshop_status": "existing-public-item-0.3.0-updated",
   "workshop_url": "https://steamcommunity.com/sharedfiles/filedetails/?id=3833045408",
   "local_validation": {
     "client_server_compile_actual_publicized": true,
@@ -42,7 +42,7 @@
     "cover_sha256_match": true,
     "download_all_files_match": true
   },
-  "pending_update_version": "0.3.0",
+  "pending_update_version": null,
   "pending_update_requires": "client update; protocol v2 unchanged; compatible with 0.2.0 server",
   "fix_validation": {
     "python_tests": 11,
@@ -73,5 +73,19 @@
     "game_started": false,
     "luacs_dependency_verified": true,
     "download_verification": "All published files match; 5 pre-existing personal Library files preserved and excluded from payload."
+  },
+  "local_update_030_20261104": {
+    "source": "cb27cee",
+    "upload_zip_sha256": "6e69a3b0c092f7ab6ffdd1fbc7f22f6b30feb8906073947e66910f6095250eb8",
+    "upload_result": "OK",
+    "updated_utc": "2026-11-04T07:42:01.0000000Z",
+    "python_passed": 10,
+    "python_skipped": 1,
+    "client_server_compile": true,
+    "game_started": false,
+    "luacs_dependency_verified": true,
+    "downloaded_published_file_count": 27,
+    "personal_library_preserved": true,
+    "previous_blocker": "Steam login; resolved by user"
   }
 }
